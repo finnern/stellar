@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getISSLocation, calculateNextPass } from '../services/issLocation';
-import Countdown from '../components/Countdown';
+import { getISSLocation } from '../services/issLocation';
+import { fetchTLE, predictPasses } from '../services/passPrediction';
+import NextPassCard from '../components/NextPassCard';
 import LocationInput from '../components/LocationInput';
 import Compass from '../components/Compass';
 import WorldMap from '../components/WorldMap';
@@ -10,7 +11,6 @@ import { getDefaultLocation } from '../services/geocoding';
 
 const Index = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [nextPass, setNextPass] = useState<Date | null>(null);
 
   // Use Berlin as default if userLocation is null
   const currentLocation = userLocation || getDefaultLocation();
@@ -20,6 +20,19 @@ const Index = () => {
     queryFn: getISSLocation,
     refetchInterval: 5000,
   });
+
+  // Orbit data (TLE) changes slowly — refresh every 6 hours
+  const { data: tle, error: tleError } = useQuery({
+    queryKey: ['issTLE'],
+    queryFn: fetchTLE,
+    staleTime: 6 * 60 * 60 * 1000,
+    refetchInterval: 6 * 60 * 60 * 1000,
+  });
+
+  const passes = useMemo(() => {
+    if (!tle) return [];
+    return predictPasses(tle, currentLocation.lat, currentLocation.lon);
+  }, [tle, currentLocation.lat, currentLocation.lon]);
 
   useEffect(() => {
     if (error) {
@@ -32,16 +45,14 @@ const Index = () => {
   }, [error]);
 
   useEffect(() => {
-    if (issLocation && currentLocation) {
-      const nextPassTime = calculateNextPass(
-        issLocation.latitude,
-        issLocation.longitude,
-        currentLocation.lat,
-        currentLocation.lon
-      );
-      setNextPass(nextPassTime);
+    if (tleError) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch ISS orbit data. Pass predictions unavailable.",
+        variant: "destructive",
+      });
     }
-  }, [issLocation, currentLocation]);
+  }, [tleError]);
 
   const handleLocationSubmit = (lat: number, lon: number) => {
     setUserLocation({ lat, lon });
@@ -65,14 +76,12 @@ const Index = () => {
           <div className="text-lg font-bold">{currentLocation.lat.toFixed(4)}°, {currentLocation.lon.toFixed(4)}°</div>
         </div>
 
-        {/* Next Pass Component */}
-        {nextPass && (
-          <Countdown targetDate={nextPass} />
-        )}
+        {/* Next Pass (real SGP4 prediction) */}
+        {tle && <NextPassCard passes={passes} />}
 
         {/* Compass Component */}
         {issLocation && currentLocation && (
-          <Compass 
+          <Compass
             userLocation={currentLocation}
             issLocation={issLocation}
           />
@@ -82,8 +91,8 @@ const Index = () => {
         <LocationInput onLocationSubmit={handleLocationSubmit} currentLocation={currentLocation} />
 
         {/* World Map */}
-        <WorldMap 
-          issLocation={issLocation ?? null} 
+        <WorldMap
+          issLocation={issLocation ?? null}
           userLocation={currentLocation}
         />
 

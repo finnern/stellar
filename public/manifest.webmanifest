@@ -1,0 +1,29 @@
+{
+  "name": "Stellar ISS Compass",
+  "short_name": "ISS Compass",
+  "description": "Track the International Space Station and find your next visible pass",
+  "start_url": "/stellar-sky-guide/",
+  "scope": "/stellar-sky-guide/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1126",
+  "theme_color": "#0d1126",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -28,11 +28,8 @@ const Countdown = ({ targetDate }: CountdownProps) => {
   }, [targetDate]);
 
   return (
-    <div className="glass-card p-6 text-center">
-      <h2 className="text-xl font-bold text-space-blue mb-2">Next ISS Pass</h2>
-      <div className="text-4xl font-bold text-white animate-pulse-slow">
-        {timeLeft}
-      </div>
+    <div className="text-4xl font-bold text-white animate-pulse-slow text-center">
+      {timeLeft}
     </div>
   );
 };

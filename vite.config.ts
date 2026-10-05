@@ -6,6 +6,12 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: "/stellar-sky-guide/",
+  build: {
+    target: "esnext",
+  },
+  worker: {
+    format: "es" as const,
+  },
   server: {
     host: "::",
     port: 8080,
