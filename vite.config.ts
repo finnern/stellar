@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "/stellar-sky-guide/",
+  base: "/stellar/",
   build: {
     target: "esnext",
   },
