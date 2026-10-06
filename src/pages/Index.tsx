@@ -5,7 +5,7 @@ import { fetchTLE, predictPasses } from '../services/passPrediction';
 import NextPassCard from '../components/NextPassCard';
 import LocationInput from '../components/LocationInput';
 import Compass from '../components/Compass';
-import WorldMap from '../components/WorldMap';
+import OrbitView from '../components/OrbitView';
 import { toast } from '@/components/ui/use-toast';
 import { getDefaultLocation } from '../services/geocoding';
 
@@ -87,14 +87,15 @@ const Index = () => {
           />
         )}
 
+        {/* ISS view / Globe */}
+        <OrbitView
+          tle={tle}
+          userLocation={currentLocation}
+          fallbackPosition={issLocation ?? null}
+        />
+
         {/* Location Input */}
         <LocationInput onLocationSubmit={handleLocationSubmit} currentLocation={currentLocation} />
-
-        {/* World Map */}
-        <WorldMap
-          issLocation={issLocation ?? null}
-          userLocation={currentLocation}
-        />
 
         {issLocation && (
           <div className="glass-card p-6">

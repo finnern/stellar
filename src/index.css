@@ -39,7 +39,3 @@
 .glass-card {
   @apply bg-space-purple/30 backdrop-blur-md border border-white/10 rounded-lg shadow-lg;
 }
-/* Dark map: invert OSM tiles (keyless) instead of using a dark tile provider */
-.dark-tiles {
-  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
-}
