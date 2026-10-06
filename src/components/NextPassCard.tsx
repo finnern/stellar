@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { ISSPass, LOOKAHEAD_DAYS } from '../services/passPrediction';
 import { makeTimeFormatter } from '../services/timeZones';
 import Countdown from './Countdown';
+import { BellRing, CalendarPlus } from 'lucide-react';
+import { passesForCalendar, buildIcs, downloadIcs, googleCalendarUrl } from '../services/calendar';
 
 export type TimeMode = 'mine' | 'local';
 
@@ -13,9 +15,11 @@ interface NextPassCardProps {
   showToggle: boolean;
   timeMode: TimeMode;
   onTimeModeChange: (mode: TimeMode) => void;
+  /** Where the passes are computed for — used in calendar entries */
+  location: { lat: number; lon: number; label?: string };
 }
 
-const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange }: NextPassCardProps) => {
+const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange, location }: NextPassCardProps) => {
   const useLocal = showToggle && timeMode === 'local' && !!placeTimeZone;
   const fmt = useMemo(() => makeTimeFormatter(useLocal ? placeTimeZone : undefined), [useLocal, placeTimeZone]);
   const formatTime = fmt.time;
@@ -78,6 +82,7 @@ const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, 
             Overhead for {Math.round(next.durationSeconds / 60)} min — look{' '}
             {next.startDirection} first
           </p>
+          <ReminderButtons passes={passes} location={location} />
         </>
       ) : (
         <p className="text-center text-gray-300">
@@ -119,6 +124,50 @@ const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, 
           </ul>
         </div>
       )}
+    </div>
+  );
+};
+
+/** "Remind me" — calendar file with a 10-minute alarm for each visible pass this week */
+const ReminderButtons = ({
+  passes,
+  location,
+}: {
+  passes: ISSPass[];
+  location: { lat: number; lon: number; label?: string };
+}) => {
+  const forCalendar = passesForCalendar(passes);
+  if (!forCalendar.length) return null;
+  const place = location.label ?? `${location.lat.toFixed(2)}°, ${location.lon.toFixed(2)}°`;
+  const fileSlug = (location.label?.split(',')[0] ?? 'location').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  const onDownload = () => {
+    const ics = buildIcs(forCalendar, place, location.lat, location.lon, window.location.href);
+    downloadIcs(ics, `iss-passes-${fileSlug}.ics`);
+  };
+
+  return (
+    <div className="mt-5 flex flex-col items-center gap-2">
+      <button
+        onClick={onDownload}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
+      >
+        <BellRing className="h-4 w-4" />
+        Remind me 10 min before
+      </button>
+      <p className="text-xs text-gray-500 text-center">
+        Adds {forCalendar.length === 1 ? 'this pass' : `all ${forCalendar.length} visible passes of the next 7 days`} to
+        your calendar, each with a 10-minute alarm.
+      </p>
+      <a
+        href={googleCalendarUrl(forCalendar[0], place, window.location.href)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-space-blue hover:underline"
+      >
+        <CalendarPlus className="h-3.5 w-3.5" />
+        or add the next pass to Google Calendar
+      </a>
     </div>
   );
 };

@@ -121,6 +121,7 @@ const Index = () => {
             showToggle={showTimeToggle}
             timeMode={timeMode}
             onTimeModeChange={setTimeMode}
+            location={{ ...currentLocation, label: currentLabel }}
           />
         )}
 
