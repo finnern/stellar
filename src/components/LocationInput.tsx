@@ -7,8 +7,9 @@ import CityInput from './location/CityInput';
 import CoordinatesInput from './location/CoordinatesInput';
 
 interface LocationInputProps {
-  onLocationSubmit: (lat: number, lon: number) => void;
-  currentLocation: { lat: number; lon: number };
+  /** source 'gps' = from the device, rounded before it goes into a shareable link */
+  onLocationSubmit: (lat: number, lon: number, label?: string, source?: 'gps') => void;
+  currentLocation: { lat: number; lon: number; label?: string };
 }
 
 const LocationInput = ({ onLocationSubmit, currentLocation }: LocationInputProps) => {
@@ -27,7 +28,7 @@ const LocationInput = ({ onLocationSubmit, currentLocation }: LocationInputProps
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocating(false);
-        onLocationSubmit(position.coords.latitude, position.coords.longitude);
+        onLocationSubmit(position.coords.latitude, position.coords.longitude, undefined, 'gps');
       },
       (err) => {
         setLocating(false);
@@ -70,7 +71,7 @@ const LocationInput = ({ onLocationSubmit, currentLocation }: LocationInputProps
         </TabsList>
 
         <TabsContent value="city">
-          <CityInput onLocationSubmit={onLocationSubmit} />
+          <CityInput onLocationSubmit={onLocationSubmit} initialValue={currentLocation.label} />
         </TabsContent>
 
         <TabsContent value="coordinates">

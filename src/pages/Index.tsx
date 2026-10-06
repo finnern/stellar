@@ -8,12 +8,16 @@ import Compass from '../components/Compass';
 import OrbitView from '../components/OrbitView';
 import { toast } from '@/components/ui/use-toast';
 import { getDefaultLocation } from '../services/geocoding';
+import { useSharedLocation, shareCurrentLink } from '@/hooks/use-shared-location';
+import { Share2 } from 'lucide-react';
 
 const Index = () => {
-  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  // Location lives in the URL (?place=…&lat=…&lon=…) so the page is always a shareable link
+  const { location: userLocation, setLocation, resolving } = useSharedLocation();
 
-  // Use Berlin as default if userLocation is null
+  // Use Berlin as default until a location is chosen
   const currentLocation = userLocation || getDefaultLocation();
+  const currentLabel = userLocation?.label;
 
   const { data: issLocation, error } = useQuery({
     queryKey: ['issLocation'],
@@ -54,12 +58,21 @@ const Index = () => {
     }
   }, [tleError]);
 
-  const handleLocationSubmit = (lat: number, lon: number) => {
-    setUserLocation({ lat, lon });
+  const handleLocationSubmit = (lat: number, lon: number, label?: string, source?: 'gps') => {
+    setLocation({ lat, lon, label }, source);
     toast({
       title: "Location Updated",
-      description: `Location set to Latitude: ${lat.toFixed(4)}°, Longitude: ${lon.toFixed(4)}°`,
+      description: label ?? `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`,
     });
+  };
+
+  const handleShare = async () => {
+    const result = await shareCurrentLink(currentLabel);
+    if (result === 'copied') {
+      toast({ title: "Link copied", description: "Paste it into a message — it opens with this location." });
+    } else if (result === 'failed') {
+      toast({ title: "Could not share", description: window.location.href });
+    }
   };
 
   return (
@@ -70,10 +83,24 @@ const Index = () => {
           <p className="text-lg text-gray-300">Track the International Space Station in real-time</p>
         </header>
 
-        {/* Show current coordinates */}
+        {/* Current location + share link */}
         <div className="glass-card p-4 mb-4 text-center">
-          <div className="text-gray-400">Currently used coordinates:</div>
-          <div className="text-lg font-bold">{currentLocation.lat.toFixed(4)}°, {currentLocation.lon.toFixed(4)}°</div>
+          <div className="text-gray-400">
+            {resolving ? 'Finding location…' : userLocation ? 'Location' : 'Default location (Berlin) — set yours below'}
+          </div>
+          {currentLabel && <div className="text-xl font-bold">{currentLabel}</div>}
+          <div className={currentLabel ? 'text-sm text-gray-400' : 'text-lg font-bold'}>
+            {currentLocation.lat.toFixed(4)}°, {currentLocation.lon.toFixed(4)}°
+          </div>
+          {userLocation && (
+            <button
+              onClick={handleShare}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
+            >
+              <Share2 className="h-4 w-4" />
+              Share link{currentLabel ? ` for ${currentLabel.split(',')[0]}` : ''}
+            </button>
+          )}
         </div>
 
         {/* Next Pass (real SGP4 prediction) */}

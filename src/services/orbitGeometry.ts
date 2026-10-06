@@ -5,6 +5,7 @@ import {
   eciToGeodetic,
   eciToEcf,
   sunPos,
+  shadowFraction,
   jday,
   radiansToDegrees,
 } from 'satellite.js';
@@ -80,3 +81,10 @@ export const subsolarPoint = (time: Date): [number, number] => {
  */
 export const footprintRadiusDeg = (altKm: number): number =>
   radiansToDegrees(Math.acos(EARTH_RADIUS_KM / (EARTH_RADIUS_KM + altKm)));
+
+/** True if the ISS is in sunlight (not in Earth's shadow) at the given time. */
+export const issSunlitAt = (satrec: SatRec, time: Date): boolean | null => {
+  const pv = propagate(satrec, time);
+  if (!pv || typeof pv.position === 'boolean' || !pv.position) return null;
+  return shadowFraction(sunPos(jday(time)).rsun, pv.position) < 0.5;
+};

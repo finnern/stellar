@@ -13,6 +13,7 @@ import {
   headingAt,
   subsolarPoint,
   footprintRadiusDeg,
+  issSunlitAt,
   SubPoint,
 } from '../services/orbitGeometry';
 
@@ -62,6 +63,8 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
   const [mode, setMode] = useState<Mode>('iss');
   const [follow, setFollow] = useState(true);
   const [fast, setFast] = useState(false);
+  const [issLit, setIssLit] = useState<boolean | null>(null);
+  const litRef = useRef<boolean | null>(null);
 
   const satrec = useMemo(() => (tle ? makeSatrec(tle) : null), [tle]);
   const fallbackRef = useRef(fallbackPosition);
@@ -152,9 +155,15 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
       // Current ISS position
       let iss: SubPoint | null = null;
       let heading = 0;
+      let sunlit: boolean | null = null;
       if (satrec) {
         iss = subPointAt(satrec, now);
         heading = headingAt(satrec, now) ?? 0;
+        sunlit = issSunlitAt(satrec, now);
+        if (sunlit !== null && sunlit !== litRef.current) {
+          litRef.current = sunlit;
+          setIssLit(sunlit);
+        }
         // Recompute track every 20 s of simulated time
         if (Math.abs(now.getTime() - v.track.computedAt) > 20_000) {
           v.track.past = groundTrack(satrec, new Date(now.getTime() - TRACK_MINUTES * 60_000), now);
@@ -293,7 +302,7 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
         if (xy) {
           // Screen angle of travel = heading minus view rotation (gamma)
           const screenAngle = ((heading - projection.rotate()[2]) * Math.PI) / 180;
-          drawISS(ctx, xy[0], xy[1], screenAngle);
+          drawISS(ctx, xy[0], xy[1], screenAngle, ts, sunlit ?? true);
         }
       }
     };
@@ -425,6 +434,11 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
             <Crosshair className="h-4 w-4" /> Follow ISS
           </button>
         )}
+        {issLit !== null && (
+          <div className="absolute top-2 right-2 text-[11px] bg-black/40 rounded px-2 py-1 text-gray-200">
+            {issLit ? '☀ ISS in sunlight' : '● ISS in Earth’s shadow'}
+          </div>
+        )}
         {mode === 'iss' && follow && (
           <div className="absolute top-2 left-2 text-[11px] text-gray-300 bg-black/40 rounded px-2 py-1">
             ↑ direction of travel
@@ -461,39 +475,109 @@ const isFront = (rotate: [number, number, number], lon: number, lat: number) => 
   return Math.sin(φ0) * Math.sin(φ) + Math.cos(φ0) * Math.cos(φ) * Math.cos(λ - λ0) > 0;
 };
 
-/** Small ISS glyph: truss + solar arrays, rotated to the direction of travel. */
-const drawISS = (ctx: CanvasRenderingContext2D, x: number, y: number, angle: number) => {
+/**
+ * ISS glyph: dark-blue solar arrays with a silver glint sweeping across them, silver modules.
+ * Rotated to the direction of travel. In Earth's shadow it is drawn dark, without glint.
+ */
+const drawISS = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  t: number,
+  sunlit: boolean
+) => {
   ctx.save();
   ctx.translate(x, y);
-  // Halo
-  const halo = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
-  halo.addColorStop(0, 'rgba(255, 230, 140, 0.55)');
-  halo.addColorStop(1, 'rgba(255, 230, 140, 0)');
-  ctx.fillStyle = halo;
-  ctx.beginPath();
-  ctx.arc(0, 0, 22, 0, Math.PI * 2);
-  ctx.fill();
+
+  // Soft silver halo when sunlit
+  if (sunlit) {
+    const halo = ctx.createRadialGradient(0, 0, 3, 0, 0, 26);
+    halo.addColorStop(0, 'rgba(225, 235, 255, 0.5)');
+    halo.addColorStop(1, 'rgba(225, 235, 255, 0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.rotate(angle);
-  // Solar arrays (perpendicular to travel direction)
-  ctx.fillStyle = '#d9a441';
-  ctx.strokeStyle = '#2a1d05';
-  ctx.lineWidth = 0.8;
-  for (const sx of [-13, -8, 4, 9]) {
-    ctx.fillRect(sx, -7, 4, 14);
-    ctx.strokeRect(sx, -7, 4, 14);
+  ctx.scale(1.25, 1.25);
+
+  // Solar arrays: four wings either side of the truss (perpendicular to travel)
+  const wings = [-15, -9.5, 4.5, 10];
+  const wingW = 5;
+  const wingH = 16;
+  ctx.fillStyle = sunlit ? '#1a3a8a' : '#0b1430';
+  for (const wx of wings) ctx.fillRect(wx, -wingH / 2, wingW, wingH);
+
+  // Solar cell grid
+  ctx.strokeStyle = sunlit ? 'rgba(120, 160, 255, 0.55)' : 'rgba(60, 80, 140, 0.4)';
+  ctx.lineWidth = 0.4;
+  for (const wx of wings) {
+    ctx.strokeRect(wx, -wingH / 2, wingW, wingH);
+    for (let gy = -wingH / 2 + 2; gy < wingH / 2; gy += 2) {
+      ctx.beginPath();
+      ctx.moveTo(wx, gy);
+      ctx.lineTo(wx + wingW, gy);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(wx + wingW / 2, -wingH / 2);
+    ctx.lineTo(wx + wingW / 2, wingH / 2);
+    ctx.stroke();
   }
+
+  // Shimmer: a silver glint sweeps diagonally across the arrays every ~2.4 s
+  if (sunlit) {
+    const phase = (t % 2400) / 2400;
+    const cx = -30 + phase * 60;
+    const glint = ctx.createLinearGradient(cx - 7, -9, cx + 7, 9);
+    glint.addColorStop(0, 'rgba(235, 242, 255, 0)');
+    glint.addColorStop(0.5, 'rgba(235, 242, 255, 0.85)');
+    glint.addColorStop(1, 'rgba(235, 242, 255, 0)');
+    ctx.save();
+    ctx.beginPath();
+    for (const wx of wings) ctx.rect(wx, -wingH / 2, wingW, wingH);
+    ctx.clip();
+    ctx.fillStyle = glint;
+    ctx.fillRect(-16, -wingH / 2, 32, wingH);
+    ctx.restore();
+  }
+
   // Truss
-  ctx.fillStyle = '#e8e8e8';
-  ctx.fillRect(-14, -1, 28, 2);
-  // Modules along travel direction (up = forward)
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(-2, -8, 4, 16);
+  const metal = (from: string, to: string) => {
+    const g = ctx.createLinearGradient(0, -2, 0, 2);
+    g.addColorStop(0, from);
+    g.addColorStop(1, to);
+    return g;
+  };
+  ctx.fillStyle = sunlit ? metal('#f4f6fa', '#9aa4b2') : metal('#3a4150', '#22262f');
+  ctx.fillRect(-15.5, -0.9, 31, 1.8);
+
+  // Pressurised modules along the direction of travel (up = forward)
+  const body = ctx.createLinearGradient(-2.2, 0, 2.2, 0);
+  if (sunlit) {
+    body.addColorStop(0, '#c9ced6');
+    body.addColorStop(0.45, '#ffffff');
+    body.addColorStop(1, '#8e97a4');
+  } else {
+    body.addColorStop(0, '#2a2f38');
+    body.addColorStop(1, '#1a1d24');
+  }
+  ctx.fillStyle = body;
+  ctx.fillRect(-2.2, -9, 4.4, 18);
+  ctx.fillRect(-4, 3.5, 8, 2.2); // cross module
+
+  // Radiators (small, light grey)
+  ctx.fillStyle = sunlit ? 'rgba(230, 232, 238, 0.9)' : 'rgba(80, 85, 95, 0.9)';
+  ctx.fillRect(-1.2, -12.5, 2.4, 3);
+
   // Forward marker
   ctx.beginPath();
-  ctx.moveTo(0, -13);
-  ctx.lineTo(-3, -8);
-  ctx.lineTo(3, -8);
+  ctx.moveTo(0, -16);
+  ctx.lineTo(-2.5, -13);
+  ctx.lineTo(2.5, -13);
   ctx.closePath();
   ctx.fillStyle = '#33c3f0';
   ctx.fill();
