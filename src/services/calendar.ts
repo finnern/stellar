@@ -32,12 +32,32 @@ const fold = (line: string) => {
 
 const title = (p: ISSPass) => `🛰️ ISS visible – look ${p.startDirection}`;
 
-const details = (p: ISSPass, appUrl: string) =>
-  [
-    `Appears ${p.startDirection}, climbs to ${p.maxElevationDeg}° in the ${p.maxDirection}, disappears ${p.endDirection}.`,
-    `Visible for about ${Math.round(p.durationSeconds / 60)} min: a bright, steady dot (no blinking), faster than a plane.`,
-    `Times can shift by a minute or two – live view: ${appUrl}`,
+/** How high a pass gets, in everyday terms (a fist at arm's length ≈ 10°) */
+const heightHint = (deg: number) => {
+  if (deg >= 60) return 'nearly overhead, look straight up!';
+  if (deg >= 30) return `high in the sky (about ${Math.round(deg / 10)} fists above the horizon)`;
+  if (deg >= 20) return `about ${Math.round(deg / 10)} fists above the horizon`;
+  return 'low, about 1–2 fists above the horizon – find a spot with a clear view that way';
+};
+
+const details = (p: ISSPass, appUrl: string) => {
+  const minutes = Math.round(p.durationSeconds / 60);
+  const toPeak = Math.max(1, Math.round((p.maxElevationTime.getTime() - p.startTime.getTime()) / 60_000));
+  return [
+    `What you'll see: the International Space Station – a bright, steady white dot (no blinking, no coloured lights) gliding across the sky faster than any plane. It's about 400 km up and carries the astronauts living on board.`,
+    '',
+    'How to watch:',
+    `• At the start time, look ${p.startDirection}, just above the horizon`,
+    `• About ${toPeak} min later it's at its highest: ${p.maxElevationDeg}° in the ${p.maxDirection} – ${heightHint(p.maxElevationDeg)}`,
+    `• It disappears in the ${p.endDirection} after about ${minutes} min – sometimes it fades out mid-sky as it enters Earth's shadow`,
+    '• No telescope needed. Step outside a few minutes early so your eyes adjust to the dark.',
+    '',
+    "Why you can see it: it's already dark where you are, but the ISS is so high that it's still lit by the sun.",
+    '',
+    `Live compass, map and 3D view: ${appUrl}`,
+    'Times can shift by a minute or two – the link always shows the latest prediction.',
   ].join('\n');
+};
 
 /** Passes worth putting in a calendar: visible ones in the next week, or at least the next visible one. */
 export const passesForCalendar = (passes: ISSPass[], now = Date.now()): ISSPass[] => {
