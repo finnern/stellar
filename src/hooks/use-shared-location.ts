@@ -31,6 +31,8 @@ const writeToUrl = (loc: AppLocation, decimals: number) => {
   window.history.replaceState(null, '', url);
 };
 
+export type TimeMode = 'mine' | 'local';
+
 /**
  * Location state that survives in the URL.
  * - Opening …/stellar/?place=Auckland,%20New%20Zealand&lat=-36.85&lon=174.76 starts there
@@ -39,6 +41,10 @@ const writeToUrl = (loc: AppLocation, decimals: number) => {
 export const useSharedLocation = () => {
   const [{ location: initial, placeOnly }] = useState(readFromUrl);
   const [location, setLocationState] = useState<AppLocation | null>(initial);
+  // ?time=local → show pass times in the selected place's time zone
+  const [timeMode, setTimeModeState] = useState<TimeMode>(() =>
+    new URLSearchParams(window.location.search).get('time') === 'local' ? 'local' : 'mine'
+  );
   const [resolving, setResolving] = useState(!!placeOnly);
 
   // Link contained only a place name — look it up once
@@ -62,7 +68,16 @@ export const useSharedLocation = () => {
     writeToUrl(loc, source === 'gps' ? 2 : 4);
   }, []);
 
-  return { location, setLocation, resolving };
+  const setTimeMode = useCallback((mode: TimeMode) => {
+    setTimeModeState(mode);
+    const params = new URLSearchParams(window.location.search);
+    if (mode === 'local') params.set('time', 'local');
+    else params.delete('time');
+    const qs = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+  }, []);
+
+  return { location, setLocation, resolving, timeMode, setTimeMode };
 };
 
 /** Open the native share sheet (phones) or copy the link (desktop). Returns what happened. */

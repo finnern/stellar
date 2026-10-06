@@ -35,6 +35,8 @@ export interface ISSPass {
   durationSeconds: number;
   // True if at some point during the pass the ISS is sunlit while the observer is in darkness
   visible: boolean;
+  /** Why a pass is (not) visible: sky too bright, or sky dark but ISS in Earth's shadow */
+  condition: 'visible' | 'daylight' | 'shadow';
 }
 
 export interface TLEData {
@@ -191,6 +193,7 @@ const buildPass = (samples: Sample[]): ISSPass | null => {
     endDirection: getCardinalDirection(last.azimuthDeg),
     durationSeconds: Math.round((last.time.getTime() - first.time.getTime()) / 1000),
     visible,
+    condition: visible ? 'visible' : peak.observerDark ? 'shadow' : 'daylight',
   };
 };
 

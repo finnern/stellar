@@ -9,15 +9,24 @@ import OrbitView from '../components/OrbitView';
 import { toast } from '@/components/ui/use-toast';
 import { getDefaultLocation } from '../services/geocoding';
 import { useSharedLocation, shareCurrentLink } from '@/hooks/use-shared-location';
+import { placeTimeZone, deviceTimeZone, sameOffsetNow } from '../services/timeZones';
 import { Share2 } from 'lucide-react';
 
 const Index = () => {
   // Location lives in the URL (?place=…&lat=…&lon=…) so the page is always a shareable link
-  const { location: userLocation, setLocation, resolving } = useSharedLocation();
+  const { location: userLocation, setLocation, resolving, timeMode, setTimeMode } = useSharedLocation();
 
   // Use Berlin as default until a location is chosen
   const currentLocation = userLocation || getDefaultLocation();
   const currentLabel = userLocation?.label;
+
+  // Time-zone toggle: only offered when the chosen place's clock differs from this device's
+  const placeTz = useMemo(
+    () => (userLocation ? placeTimeZone(userLocation.lat, userLocation.lon) : undefined),
+    [userLocation]
+  );
+  const showTimeToggle = !!placeTz && !sameOffsetNow(placeTz, deviceTimeZone());
+  const placeName = currentLabel?.split(',')[0]?.trim() || 'Local';
 
   const { data: issLocation, error } = useQuery({
     queryKey: ['issLocation'],
@@ -104,7 +113,16 @@ const Index = () => {
         </div>
 
         {/* Next Pass (real SGP4 prediction) */}
-        {tle && <NextPassCard passes={passes} />}
+        {tle && (
+          <NextPassCard
+            passes={passes}
+            placeTimeZone={placeTz}
+            placeName={placeName}
+            showToggle={showTimeToggle}
+            timeMode={timeMode}
+            onTimeModeChange={setTimeMode}
+          />
+        )}
 
         {/* Compass Component */}
         {issLocation && currentLocation && (

@@ -1,23 +1,25 @@
+import { useMemo } from 'react';
 import { ISSPass, LOOKAHEAD_DAYS } from '../services/passPrediction';
+import { makeTimeFormatter } from '../services/timeZones';
 import Countdown from './Countdown';
+
+export type TimeMode = 'mine' | 'local';
 
 interface NextPassCardProps {
   passes: ISSPass[];
+  /** Time zone of the selected place; the toggle only shows when it differs from the device's */
+  placeTimeZone?: string;
+  placeName?: string;
+  showToggle: boolean;
+  timeMode: TimeMode;
+  onTimeModeChange: (mode: TimeMode) => void;
 }
 
-const formatTime = (d: Date) =>
-  d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-const formatDay = (d: Date) => {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-  return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
-};
-
-const NextPassCard = ({ passes }: NextPassCardProps) => {
+const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange }: NextPassCardProps) => {
+  const useLocal = showToggle && timeMode === 'local' && !!placeTimeZone;
+  const fmt = useMemo(() => makeTimeFormatter(useLocal ? placeTimeZone : undefined), [useLocal, placeTimeZone]);
+  const formatTime = fmt.time;
+  const formatDay = fmt.day;
   const now = Date.now();
   const upcoming = passes.filter((p) => p.endTime.getTime() > now);
   const next = upcoming.find((p) => p.visible);
@@ -27,11 +29,30 @@ const NextPassCard = ({ passes }: NextPassCardProps) => {
       <h2 className="text-xl font-bold text-space-blue mb-2 text-center">
         Next Visible Pass
       </h2>
+      {showToggle && (
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-lg bg-black/30 p-1 text-sm" role="group" aria-label="Time zone">
+            {(['mine', 'local'] as TimeMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => onTimeModeChange(m)}
+                aria-pressed={timeMode === m}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  timeMode === m ? 'bg-space-blue text-white' : 'text-gray-300'
+                }`}
+              >
+                {m === 'mine' ? 'My time' : `${placeName ?? 'Local'} time`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {next ? (
         <>
           <Countdown targetDate={next.startTime} />
           <div className="text-center text-gray-300 mt-2">
-            {formatDay(next.startTime)} {formatTime(next.startTime)} – {formatTime(next.endTime)}
+            {formatDay(next.startTime)} {formatTime(next.startTime)} – {formatTime(next.endTime)}{' '}
+            <span className="text-gray-500 text-sm">{fmt.zone(next.startTime)}</span>
           </div>
           {next.startTime.getTime() - now > 7 * 24 * 60 * 60 * 1000 && (
             <p className="text-center text-gray-500 text-xs mt-1">
@@ -91,7 +112,7 @@ const NextPassCard = ({ passes }: NextPassCardProps) => {
                       : 'text-gray-500'
                   }
                 >
-                  {p.visible ? 'visible' : 'daylight'}
+                  {p.condition === 'visible' ? 'visible' : p.condition === 'shadow' ? 'in shadow' : 'daylight'}
                 </span>
               </li>
             ))}
