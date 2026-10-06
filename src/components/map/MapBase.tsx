@@ -13,9 +13,12 @@ const MapBase = ({ container }: MapBaseProps) => {
     target: container,
     layers: [
       new TileLayer({
+        // CARTO basemaps now require an API key; OSM tiles are keyless.
+        // The 'dark-tiles' class applies a CSS filter for the dark look.
+        className: 'dark-tiles',
         source: new XYZ({
-          url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-          attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         }),
       }),
     ],

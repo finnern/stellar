@@ -14,7 +14,9 @@ import type { SatRec } from 'satellite.js';
 
 const KM_PER_AU = 149597870.69098932;
 const STEP_SECONDS = 30;
-const LOOKAHEAD_HOURS = 72;
+// Visible-pass windows come in clusters with gaps of a week or more, so look far enough ahead
+export const LOOKAHEAD_DAYS = 30;
+const LOOKAHEAD_HOURS = LOOKAHEAD_DAYS * 24;
 const MIN_PEAK_ELEVATION_DEG = 10;
 // Observer sun elevation below which the sky is dark enough to spot the ISS
 const DARKNESS_SUN_ELEVATION_DEG = -6;
@@ -93,6 +95,12 @@ const sampleAt = (
   const gmst = gstime(time);
   const positionEcf = eciToEcf(pv.position, gmst);
   const look = ecfToLookAngles(observerGd, positionEcf);
+  const elevationDeg = radiansToDegrees(look.elevation);
+
+  // Below the horizon: skip the (costlier) sun/shadow math — keeps a 14-day scan fast on phones
+  if (elevationDeg <= 0) {
+    return { time, elevationDeg, azimuthDeg: 0, issSunlit: false, observerDark: false };
+  }
 
   const jd = jday(time);
   const sun = sunPos(jd);
@@ -107,7 +115,7 @@ const sampleAt = (
 
   return {
     time,
-    elevationDeg: radiansToDegrees(look.elevation),
+    elevationDeg,
     azimuthDeg: ((radiansToDegrees(look.azimuth) % 360) + 360) % 360,
     issSunlit: shadowFraction(sun.rsun, pv.position) < 0.5,
     observerDark: radiansToDegrees(sunLook.elevation) < DARKNESS_SUN_ELEVATION_DEG,

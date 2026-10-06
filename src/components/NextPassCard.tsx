@@ -1,4 +1,4 @@
-import { ISSPass } from '../services/passPrediction';
+import { ISSPass, LOOKAHEAD_DAYS } from '../services/passPrediction';
 import Countdown from './Countdown';
 
 interface NextPassCardProps {
@@ -33,6 +33,11 @@ const NextPassCard = ({ passes }: NextPassCardProps) => {
           <div className="text-center text-gray-300 mt-2">
             {formatDay(next.startTime)} {formatTime(next.startTime)} – {formatTime(next.endTime)}
           </div>
+          {next.startTime.getTime() - now > 7 * 24 * 60 * 60 * 1000 && (
+            <p className="text-center text-gray-500 text-xs mt-1">
+              More than a week out — time may shift by a few minutes; check again closer to the date.
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-2 text-center mt-4">
             <div>
               <p className="text-gray-400 text-sm">Appears</p>
@@ -55,9 +60,12 @@ const NextPassCard = ({ passes }: NextPassCardProps) => {
         </>
       ) : (
         <p className="text-center text-gray-300">
-          No visible pass in the next 3 days for this location.
+          No visible pass in the next {LOOKAHEAD_DAYS} days for this location.
         </p>
       )}
+      <p className="text-center text-gray-500 text-xs mt-3">
+        Visible = sky is dark but the ISS is still lit by the sun (after dusk / before dawn).
+      </p>
 
       {upcoming.length > 0 && (
         <div className="mt-6">
