@@ -2,6 +2,47 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { calculateBearing, getCardinalDirection } from '@/utils/compassUtils';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { drawISS } from '@/lib/drawISS';
+
+// Dial geometry: the needle length and the ISS marker position both derive from NEEDLE_RADIUS
+const DIAL_SIZE = 192; // px, matches w-48 / h-48
+const RING_WIDTH = 2; // px, border-2 on the dial
+const NEEDLE_RADIUS = DIAL_SIZE / 2 - RING_WIDTH / 2; // centre to the middle of the ring
+const ISS_ICON_SIZE = 30; // px, visible size of the ISS glyph
+const ISS_CANVAS_SIZE = 44; // px, glyph plus its halo
+// drawISS's glyph spans about 40 units (forward marker to tail) at its own 1.25 scale
+const ISS_GLYPH_SCALE = ISS_ICON_SIZE / 40;
+
+/** The map's ISS glyph, drawn upright and sunlit on a small canvas. */
+const IssMarker = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = ISS_CANVAS_SIZE * dpr;
+    canvas.height = ISS_CANVAS_SIZE * dpr;
+    let raf = 0;
+    const draw = (ts: number) => {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, ISS_CANVAS_SIZE, ISS_CANVAS_SIZE);
+      ctx.translate(ISS_CANVAS_SIZE / 2, ISS_CANVAS_SIZE / 2);
+      ctx.scale(ISS_GLYPH_SCALE, ISS_GLYPH_SCALE);
+      drawISS(ctx, 0, 0, 0, ts, true);
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      style={{ width: ISS_CANVAS_SIZE, height: ISS_CANVAS_SIZE }}
+    />
+  );
+};
 
 interface CompassProps {
   userLocation: { lat: number; lon: number };
@@ -200,7 +241,8 @@ const Compass = ({ userLocation, issLocation }: CompassProps) => {
         </p>
       )}
 
-      <div className="relative w-48 h-48 mx-auto">
+      {/* Vertical margin leaves room for the ISS marker when it sits at the top or bottom of the ring */}
+      <div className="relative mx-auto my-6" style={{ width: DIAL_SIZE, height: DIAL_SIZE }}>
         {/* Compass Rose - rotates to keep N pointing to real north */}
         <div 
           className="absolute inset-0 rounded-full border-2 border-space-blue/30 transition-transform duration-100 ease-out"
@@ -227,22 +269,36 @@ const Compass = ({ userLocation, issLocation }: CompassProps) => {
           className="absolute inset-0 transition-transform duration-100 ease-out pointer-events-none"
           style={{ transform: `rotate(${finalRotation}deg)` }}
         >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1/2 flex flex-col items-center">
-            <div className="w-4 h-4 bg-space-blue transform -translate-y-1/2 rotate-45" />
-            <div className="flex-1 w-0.5 bg-space-blue/50" />
+          {/* Needle: from the centre up to the ring */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 w-0.5 bg-space-blue/50"
+            style={{ top: DIAL_SIZE / 2 - NEEDLE_RADIUS, height: NEEDLE_RADIUS }}
+          />
+          {/* ISS marker: centred on the needle tip, counter-rotated to stay upright */}
+          <div
+            className="absolute transition-transform duration-100 ease-out"
+            style={{
+              left: DIAL_SIZE / 2 - ISS_CANVAS_SIZE / 2,
+              top: DIAL_SIZE / 2 - NEEDLE_RADIUS - ISS_CANVAS_SIZE / 2,
+              width: ISS_CANVAS_SIZE,
+              height: ISS_CANVAS_SIZE,
+              transform: `rotate(${-finalRotation}deg)`,
+            }}
+          >
+            <IssMarker />
           </div>
         </div>
+      </div>
 
-        {/* Direction Information */}
-        <div className="text-center mt-4">
-          <p className="text-gray-400">Point phone toward arrow to face ISS</p>
-          <p className="text-sm text-gray-500">ISS is {getCardinalDirection(bearing)} ({bearing.toFixed(0)}°)</p>
-          {permissionGranted && (
-            <p className="text-xs text-gray-600">
-              Heading: {deviceOrientation.toFixed(0)}°
-            </p>
-          )}
-        </div>
+      {/* Direction Information */}
+      <div className="text-center">
+        <p className="text-gray-400">Point phone toward the ISS to face it</p>
+        <p className="text-sm text-gray-500">ISS is {getCardinalDirection(bearing)} ({bearing.toFixed(0)}°)</p>
+        {permissionGranted && (
+          <p className="text-xs text-gray-600">
+            Heading: {deviceOrientation.toFixed(0)}°
+          </p>
+        )}
       </div>
     </div>
   );
