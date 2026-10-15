@@ -2,8 +2,8 @@
 
 An Apps Script that runs hourly and keeps two lines of the Gmail signature current:
 
-> [Next visible International Space Station (ISS) pass over the Black Forest:](https://finnern.com/stellar/?view=globe&speed=60)
-> Fri, 16 Oct 2026, 7:12 am (CEST). Where is it right now, seen from your place? → [finnern.com/stellar](https://finnern.com/stellar/?view=globe&speed=60)
+> 🛰️ [**Next visible International Space Station (ISS) pass over the Black Forest:**](https://finnern.com/stellar/?view=globe&speed=60)
+> Fri, 16 Oct 2026, 7:12 am (CEST). Where is it right now, seen from your place? → [**finnern.com/stellar**](https://finnern.com/stellar/?view=globe&speed=60)
 
 Both links open the app on the globe in 60× fast-forward (`?view=globe&speed=60`), so a curious
 reader sees the ISS fly right away. If there is no visible pass in the next 10 days, it is one line:

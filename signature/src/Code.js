@@ -157,19 +157,21 @@ function fetchTle(now) {
  * then the pass time on the next line. Without a pass it is one linked question.
  */
 function signatureLine(passStart) {
-  const link = (label) => '<a href="' + LINK_HREF + '">' + escapeHtml(label) + '</a>';
+  // Bold links like the other links in the signature; 🛰️ as the ISS icon (there is no ISS emoji)
+  const link = (label) => '<a href="' + LINK_HREF + '"><b>' + escapeHtml(label) + '</b></a>';
+  const icon = '🛰️ ';
   if (!passStart) {
     const question = 'When can you see the International Space Station (ISS) from where you are?';
     return {
-      text: question + ' → ' + MARKER,
-      html: link(question) + ' → ' + link(MARKER),
+      text: icon + question + ' → ' + MARKER,
+      html: icon + link(question) + ' → ' + link(MARKER),
     };
   }
   const heading = 'Next visible International Space Station (ISS) pass over the Black Forest:';
   const detail = formatBerlin(passStart) + '. Where is it right now, seen from your place? → ';
   return {
-    text: heading + ' ' + detail + MARKER,
-    html: link(heading) + '<br>' + escapeHtml(detail) + link(MARKER),
+    text: icon + heading + ' ' + detail + MARKER,
+    html: icon + link(heading) + '<br>' + escapeHtml(detail) + link(MARKER),
   };
 }
 

@@ -102,7 +102,7 @@ console.log(`\nLine (${Date.now() - t0} ms):\n  ${text}\n`);
 console.log('finnern@gmail.com signature HTML after first run:\n  ' + signatures['finnern@gmail.com'] + '\n');
 assert.deepEqual(patches, ['finnern@gmail.com', 'mark@finnern.com'], 'first run writes both');
 assert.ok(signatures['finnern@gmail.com'].startsWith(gmailSig));
-assert.ok(signatures['mark@finnern.com'].endsWith('finnern.com/stellar</a>'));
+assert.ok(signatures['mark@finnern.com'].endsWith('finnern.com/stellar</b></a>'));
 
 run('updateSignature()');
 assert.equal(patches.length, 2, 'second run with the same pass does not write');
@@ -135,20 +135,20 @@ assert.ok(signatures['finnern@gmail.com'].startsWith(gmailSig));
 const line = run('signatureLine(new Date("2026-10-16T05:28:00Z"))');
 assert.equal(
   line.text,
-  'Next visible International Space Station (ISS) pass over the Black Forest: Fri, 16 Oct 2026, 7:28 am (CEST). ' +
+  '🛰️ Next visible International Space Station (ISS) pass over the Black Forest: Fri, 16 Oct 2026, 7:28 am (CEST). ' +
     'Where is it right now, seen from your place? → finnern.com/stellar'
 );
 const href = '<a href="https://finnern.com/stellar/?view=globe&amp;speed=60">';
 assert.equal(
   line.html,
-  href + 'Next visible International Space Station (ISS) pass over the Black Forest:</a><br>' +
+  '🛰️ ' + href + '<b>Next visible International Space Station (ISS) pass over the Black Forest:</b></a><br>' +
     'Fri, 16 Oct 2026, 7:28 am (CEST). Where is it right now, seen from your place? → ' +
-    href + 'finnern.com/stellar</a>'
+    href + '<b>finnern.com/stellar</b></a>'
 );
 assert.match(run('signatureLine(new Date("2026-12-24T17:05:00Z")).text'), /: Thu, 24 Dec 2026, 6:05 pm \(CET\)\. /);
 assert.equal(
   run('signatureLine(null).text'),
-  'When can you see the International Space Station (ISS) from where you are? → finnern.com/stellar'
+  '🛰️ When can you see the International Space Station (ISS) from where you are? → finnern.com/stellar'
 );
 
 context.line = line;
