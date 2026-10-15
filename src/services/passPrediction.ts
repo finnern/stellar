@@ -126,24 +126,25 @@ const sampleAt = (
 
 /**
  * Predict upcoming ISS passes over an observer location using SGP4 propagation.
- * Scans LOOKAHEAD_HOURS ahead in STEP_SECONDS steps; a pass is any interval above
+ * Scans LOOKAHEAD_HOURS (or options.lookaheadHours) ahead in STEP_SECONDS steps; a pass is any interval above
  * the horizon whose peak elevation reaches MIN_PEAK_ELEVATION_DEG.
  */
 export const predictPasses = (
   tle: TLEData,
   latitude: number,
   longitude: number,
-  startFrom: Date = new Date()
+  startFrom: Date = new Date(),
+  { lookaheadHours = LOOKAHEAD_HOURS, heightKm = 0.3 }: { lookaheadHours?: number; heightKm?: number } = {}
 ): ISSPass[] => {
   const satrec = twoline2satrec(tle.line1, tle.line2);
   const observerGd = {
     latitude: degreesToRadians(latitude),
     longitude: degreesToRadians(longitude),
-    height: 0.3, // km above sea level; small effect on look angles
+    height: heightKm, // km above sea level; small effect on look angles
   };
 
   const passes: ISSPass[] = [];
-  const totalSteps = (LOOKAHEAD_HOURS * 3600) / STEP_SECONDS;
+  const totalSteps = (lookaheadHours * 3600) / STEP_SECONDS;
   let current: Sample[] = [];
 
   for (let i = 0; i <= totalSteps; i++) {

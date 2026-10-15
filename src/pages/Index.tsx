@@ -20,6 +20,12 @@ const Index = () => {
   const currentLocation = userLocation || getDefaultLocation();
   const currentLabel = userLocation?.label;
 
+  // The globe opens in 60× fast-forward; ?view=iss and ?speed=1 start in ISS view / real time
+  const [linkView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return { globe: params.get('view') !== 'iss', fast: params.get('speed') !== '1' };
+  });
+
   // Time-zone toggle: only offered when the chosen place's clock differs from this device's
   const placeTz = useMemo(
     () => (userLocation ? placeTimeZone(userLocation.lat, userLocation.lon) : undefined),
@@ -92,6 +98,15 @@ const Index = () => {
           <p className="text-lg text-gray-300">Track the International Space Station in real-time</p>
         </header>
 
+        {/* ISS view / Globe: first, so a curious visitor sees where the ISS is right now */}
+        <OrbitView
+          tle={tle}
+          userLocation={currentLocation}
+          fallbackPosition={issLocation ?? null}
+          initialMode={linkView.globe ? 'globe' : 'iss'}
+          initialFast={linkView.fast}
+        />
+
         {/* Current location + share link */}
         <div className="glass-card p-4 mb-4 text-center">
           <div className="text-gray-400">
@@ -132,13 +147,6 @@ const Index = () => {
             issLocation={issLocation}
           />
         )}
-
-        {/* ISS view / Globe */}
-        <OrbitView
-          tle={tle}
-          userLocation={currentLocation}
-          fallbackPosition={issLocation ?? null}
-        />
 
         {/* Location Input */}
         <LocationInput onLocationSubmit={handleLocationSubmit} currentLocation={currentLocation} />

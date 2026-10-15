@@ -25,6 +25,9 @@ interface OrbitViewProps {
   userLocation: { lat: number; lon: number };
   /** Live API position — used only until orbit data (TLE) is loaded */
   fallbackPosition: { latitude: number; longitude: number; altitude: number } | null;
+  /** Starting view and speed, e.g. from a link (?view=globe&speed=60) */
+  initialMode?: Mode;
+  initialFast?: boolean;
 }
 
 interface WorldShapes {
@@ -54,16 +57,17 @@ const COLORS = {
   user: '#ffb020',
 };
 
-const TRACK_MINUTES = 90; // ~one orbit behind and ahead
+const TRACK_MINUTES = 90; // ~one orbit ahead
+const PAST_MINUTES = 46; // ~half an orbit behind, fading out towards its oldest end
 const FRAME_MS = 33;
 const FAST_FORWARD = 60;
 
-const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
+const OrbitView = ({ tle, userLocation, fallbackPosition, initialMode = 'globe', initialFast = true }: OrbitViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<Mode>('iss');
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [follow, setFollow] = useState(true);
-  const [fast, setFast] = useState(false);
+  const [fast, setFast] = useState(initialFast);
   const [issLit, setIssLit] = useState<boolean | null>(null);
   const litRef = useRef<boolean | null>(null);
 
@@ -76,7 +80,7 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
     rotate: [0, 0, 0] as [number, number, number],
     zoom: 1,
     follow: true,
-    mode: 'iss' as Mode,
+    mode: initialMode,
     fast: false,
     simStart: Date.now(),
     realStart: Date.now(),
@@ -167,7 +171,7 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
         }
         // Recompute track every 20 s of simulated time
         if (Math.abs(now.getTime() - v.track.computedAt) > 20_000) {
-          v.track.past = groundTrack(satrec, new Date(now.getTime() - TRACK_MINUTES * 60_000), now);
+          v.track.past = groundTrack(satrec, new Date(now.getTime() - PAST_MINUTES * 60_000), now);
           v.track.future = groundTrack(satrec, now, new Date(now.getTime() + TRACK_MINUTES * 60_000));
           v.track.computedAt = now.getTime();
         }
@@ -273,12 +277,18 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
         ctx.stroke();
         ctx.setLineDash([]);
       }
-      if (v.track.past.length > 1) {
-        ctx.beginPath();
-        path({ type: 'LineString', coordinates: v.track.past });
+      // Past track fades from full at the ISS to gone half an orbit back
+      const past = v.track.past;
+      if (past.length > 1) {
         ctx.strokeStyle = COLORS.pastTrack;
         ctx.lineWidth = 2.5;
-        ctx.stroke();
+        for (let i = 1; i < past.length; i++) {
+          ctx.globalAlpha = i / (past.length - 1);
+          ctx.beginPath();
+          path({ type: 'LineString', coordinates: [past[i - 1], past[i]] });
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
       }
 
       // You
@@ -448,7 +458,7 @@ const OrbitView = ({ tle, userLocation, fallbackPosition }: OrbitViewProps) => {
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs text-gray-400">
-        <span><span className="inline-block w-5 h-0.5 bg-[#33c3f0] align-middle mr-1" />last 90 min</span>
+        <span><span className="inline-block w-5 h-0.5 bg-[#33c3f0] align-middle mr-1" />last 45 min</span>
         <span><span className="inline-block w-5 border-t-2 border-dashed border-[#33c3f0]/60 align-middle mr-1" />next 90 min</span>
         <span><span className="inline-block w-3 h-3 rounded-full border border-dashed border-white/50 align-middle mr-1" />ISS above horizon</span>
         <span><span className="inline-block w-3 h-3 bg-[#020410]/80 border border-white/20 align-middle mr-1" />night</span>

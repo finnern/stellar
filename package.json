@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "signature:build": "node signature/build.mjs",
+    "signature:push": "node signature/build.mjs && cd signature && npx @google/clasp@2.4.2 push --force"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
