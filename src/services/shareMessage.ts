@@ -30,9 +30,13 @@ export const shareMessage = ({
   const zoneName = (d: Date) => zone.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? '';
   const next = passes.filter((p) => p.visible && p.startTime.getTime() > now).slice(0, MAX_PASSES);
 
-  const intro =
-    `Here's a little app that shows when the International Space Station flies over ${placeName}: ` +
-    'a bright, steady dot gliding across the sky, no telescope needed.';
+  const intro = [
+    `Have you ever seen the International Space Station fly over ${placeName}? 🛰️`,
+    '',
+    'It looks like a bright, steady star that crosses the sky in a few minutes: no blinking, ' +
+      'no telescope needed. Up there, about 400 km high, astronauts are circling the Earth every ' +
+      '90 minutes, and you can watch them pass with your own eyes.',
+  ].join('\n');
 
   if (!next.length) {
     return [
@@ -61,6 +65,7 @@ export const shareMessage = ({
     ...lines,
     ...low,
     '',
-    'Countdown, compass, a live globe and Google Calendar reminders:',
+    'Step outside a few minutes early so your eyes get used to the dark. This little app shows ' +
+      'a countdown, a compass pointing to where it appears, a live globe and calendar reminders:',
   ].join('\n');
 };

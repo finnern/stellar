@@ -80,10 +80,27 @@ export const useSharedLocation = () => {
   return { location, setLocation, resolving, timeMode, setTimeMode };
 };
 
+/**
+ * Short link for sharing: just place and coordinates (~1 km is plenty), without view or time-zone
+ * settings, so it reads well in a message: …/stellar/?place=Arvidsjaur&lat=65.67&lon=19.25
+ */
+const cleanShareUrl = (): string => {
+  const current = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams();
+  const place = current.get('place');
+  if (place) params.set('place', place.split(',')[0].trim());
+  for (const key of ['lat', 'lon']) {
+    const v = parseFloat(current.get(key) ?? '');
+    if (Number.isFinite(v)) params.set(key, v.toFixed(2));
+  }
+  const qs = params.toString().replace(/\+/g, '%20');
+  return `${window.location.origin}${window.location.pathname}${qs ? `?${qs}` : ''}`;
+};
+
 /** Open the native share sheet (phones) or copy message and link (desktop). Returns what happened. */
 export const shareCurrentLink = async (label?: string, message?: string): Promise<'shared' | 'copied' | 'failed'> => {
-  const url = window.location.href;
-  const title = label ? `ISS over ${label}` : 'Stellar ISS Compass';
+  const url = cleanShareUrl();
+  const title = label ? `See the ISS fly over ${label.split(',')[0].trim()}` : 'Stellar ISS Compass';
   const text =
     message ??
     (label

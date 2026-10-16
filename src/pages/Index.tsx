@@ -136,7 +136,7 @@ const Index = () => {
               className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
             >
               <Share2 className="h-4 w-4" />
-              Share {currentLabel ? `${placeName} ` : ''}with a friend
+              Share the ISS flyover experience with a friend
             </button>
           )}
         </div>
