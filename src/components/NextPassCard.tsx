@@ -2,8 +2,11 @@ import { useMemo } from 'react';
 import { ISSPass, LOOKAHEAD_DAYS } from '../services/passPrediction';
 import { makeTimeFormatter } from '../services/timeZones';
 import Countdown from './Countdown';
-import { BellRing, CalendarPlus } from 'lucide-react';
-import { passesForCalendar, buildIcs, downloadIcs, googleCalendarUrl } from '../services/calendar';
+import { CalendarPlus, Download } from 'lucide-react';
+import { googleCalendarUrl, buildIcs, downloadIcs } from '../services/calendar';
+
+const SOON_COUNT = 3; // next passes of any kind, so there is always something close by
+const VISIBLE_COUNT = 5; // next visible passes, however far out
 
 export type TimeMode = 'mine' | 'local';
 
@@ -29,6 +32,14 @@ const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, t
   const now = Date.now();
   const upcoming = passes.filter((p) => p.endTime.getTime() > now);
   const next = upcoming.find((p) => p.visible);
+  const soon = upcoming.slice(0, SOON_COUNT);
+  const visibleAhead = upcoming.filter((p) => p.visible).slice(0, VISIBLE_COUNT);
+  const place = location.label ?? `${location.lat.toFixed(2)}°, ${location.lon.toFixed(2)}°`;
+  const calendarUrl = (p: ISSPass) => googleCalendarUrl(p, place, window.location.href);
+  // Apple Calendar, Outlook & co.: .ics file with a 10-minute alarm
+  const fileSlug = (location.label?.split(',')[0] ?? 'location').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const downloadPass = (p: ISSPass) =>
+    downloadIcs(buildIcs([p], place, location.lat, location.lon, window.location.href), `iss-pass-${fileSlug}.ics`);
 
   return (
     <div className="glass-card p-6">
@@ -91,7 +102,24 @@ const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, t
             Overhead for {Math.round(next.durationSeconds / 60)} min — look{' '}
             {next.startDirection} first
           </p>
-          <ReminderButtons passes={passes} location={location} />
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <a
+              href={calendarUrl(next)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Add to Google Calendar
+            </a>
+            <button
+              onClick={() => downloadPass(next)}
+              className="inline-flex items-center gap-1.5 text-xs text-space-blue hover:underline"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Other calendars (Apple, Outlook): .ics with a 10-min alarm
+            </button>
+          </div>
         </>
       ) : (
         <p className="text-center text-gray-300">
@@ -102,83 +130,86 @@ const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, t
         Visible = sky is dark but the ISS is still lit by the sun (after dusk / before dawn).
       </p>
 
-      {upcoming.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-wide">
-            Upcoming passes
-          </h3>
-          <ul className="divide-y divide-white/10">
-            {upcoming.slice(0, 6).map((p) => (
-              <li
-                key={p.startTime.getTime()}
-                className="py-2 flex items-center justify-between text-sm"
-              >
-                <span className="text-gray-300">
-                  {formatDay(p.startTime)} {formatTime(p.startTime)}
-                </span>
-                <span className="text-gray-400">
-                  {p.startDirection}→{p.endDirection}, max {p.maxElevationDeg}°
-                </span>
-                <span
-                  className={
-                    p.visible
-                      ? 'text-green-400 font-semibold'
-                      : 'text-gray-500'
-                  }
-                >
-                  {p.condition === 'visible' ? 'visible' : p.condition === 'shadow' ? 'in shadow' : 'daylight'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {soon.length > 0 && (
+        <PassList title="Coming up next" passes={soon} formatDay={formatDay} formatTime={formatTime} />
+      )}
+      {visibleAhead.length > 0 && (
+        <PassList
+          title={`Next ${visibleAhead.length} visible passes`}
+          passes={visibleAhead}
+          formatDay={formatDay}
+          formatTime={formatTime}
+          calendarUrl={calendarUrl}
+          onDownload={downloadPass}
+        />
       )}
     </div>
   );
 };
 
-/** "Remind me" — calendar file with a 10-minute alarm for each visible pass this week */
-const ReminderButtons = ({
+const conditionLabel = (p: ISSPass) =>
+  p.condition === 'visible' ? 'visible' : p.condition === 'shadow' ? 'in shadow' : 'daylight';
+
+/** One pass per row; with calendarUrl, each row gets a Google Calendar button and an .ics download */
+const PassList = ({
+  title,
   passes,
-  location,
+  formatDay,
+  formatTime,
+  calendarUrl,
+  onDownload,
 }: {
+  title: string;
   passes: ISSPass[];
-  location: { lat: number; lon: number; label?: string };
-}) => {
-  const forCalendar = passesForCalendar(passes);
-  if (!forCalendar.length) return null;
-  const place = location.label ?? `${location.lat.toFixed(2)}°, ${location.lon.toFixed(2)}°`;
-  const fileSlug = (location.label?.split(',')[0] ?? 'location').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-  const onDownload = () => {
-    const ics = buildIcs(forCalendar, place, location.lat, location.lon, window.location.href);
-    downloadIcs(ics, `iss-passes-${fileSlug}.ics`);
-  };
-
-  return (
-    <div className="mt-5 flex flex-col items-center gap-2">
-      <button
-        onClick={onDownload}
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
-      >
-        <BellRing className="h-4 w-4" />
-        Remind me 10 min before
-      </button>
-      <p className="text-xs text-gray-500 text-center">
-        Adds {forCalendar.length === 1 ? 'this pass' : `all ${forCalendar.length} visible passes of the next 7 days`} to
-        your calendar, each with a 10-minute alarm.
-      </p>
-      <a
-        href={googleCalendarUrl(forCalendar[0], place, window.location.href)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-xs text-space-blue hover:underline"
-      >
-        <CalendarPlus className="h-3.5 w-3.5" />
-        or add the next pass to Google Calendar
-      </a>
-    </div>
-  );
-};
+  formatDay: (d: Date) => string;
+  formatTime: (d: Date) => string;
+  calendarUrl?: (p: ISSPass) => string;
+  onDownload?: (p: ISSPass) => void;
+}) => (
+  <div className="mt-6">
+    <h3 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-wide">{title}</h3>
+    <ul className="divide-y divide-white/10">
+      {passes.map((p) => (
+        <li key={p.startTime.getTime()} className="py-2 flex items-center gap-3 text-sm">
+          <span className="text-gray-300 flex-1 min-w-0">
+            {formatDay(p.startTime)} {formatTime(p.startTime)}
+          </span>
+          <span className="text-gray-400 hidden sm:inline">
+            {p.startDirection}→{p.endDirection}, max {p.maxElevationDeg}°
+          </span>
+          <span className="text-gray-400 sm:hidden">max {p.maxElevationDeg}°</span>
+          {calendarUrl ? (
+            <a
+              href={calendarUrl(p)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Add the pass on ${formatDay(p.startTime)} to Google Calendar`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-space-blue/20 hover:bg-space-blue/40 text-space-blue text-xs font-semibold transition-colors"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Google Calendar</span>
+            </a>
+          ) : null}
+          {onDownload && (
+            <button
+              onClick={() => onDownload(p)}
+              aria-label={`Download the pass on ${formatDay(p.startTime)} for other calendars (.ics)`}
+              title="Other calendars (Apple, Outlook): .ics with a 10-min alarm"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-gray-400 hover:text-space-blue text-xs transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">.ics</span>
+            </button>
+          )}
+          {!calendarUrl && (
+            <span className={`w-20 text-right ${p.visible ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>
+              {conditionLabel(p)}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 export default NextPassCard;

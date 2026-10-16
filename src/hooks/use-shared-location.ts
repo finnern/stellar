@@ -80,13 +80,15 @@ export const useSharedLocation = () => {
   return { location, setLocation, resolving, timeMode, setTimeMode };
 };
 
-/** Open the native share sheet (phones) or copy the link (desktop). Returns what happened. */
-export const shareCurrentLink = async (label?: string): Promise<'shared' | 'copied' | 'failed'> => {
+/** Open the native share sheet (phones) or copy message and link (desktop). Returns what happened. */
+export const shareCurrentLink = async (label?: string, message?: string): Promise<'shared' | 'copied' | 'failed'> => {
   const url = window.location.href;
   const title = label ? `ISS over ${label}` : 'Stellar ISS Compass';
-  const text = label
-    ? `When can you see the International Space Station from ${label}? Live tracker:`
-    : 'When can you see the International Space Station? Live tracker:';
+  const text =
+    message ??
+    (label
+      ? `When can you see the International Space Station from ${label}? Live tracker:`
+      : 'When can you see the International Space Station? Live tracker:');
   if (navigator.share) {
     try {
       await navigator.share({ title, text, url });
@@ -96,7 +98,7 @@ export const shareCurrentLink = async (label?: string): Promise<'shared' | 'copi
     }
   }
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(`${text}\n${url}`);
     return 'copied';
   } catch {
     return 'failed';

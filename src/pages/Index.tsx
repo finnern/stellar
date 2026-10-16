@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/use-toast';
 import { getDefaultLocation } from '../services/geocoding';
 import { useSharedLocation, shareCurrentLink } from '@/hooks/use-shared-location';
 import { placeTimeZone, deviceTimeZone, sameOffsetNow } from '../services/timeZones';
+import { shareMessage } from '../services/shareMessage';
 import { Share2 } from 'lucide-react';
 
 const Index = () => {
@@ -88,9 +89,16 @@ const Index = () => {
   };
 
   const handleShare = async () => {
-    const result = await shareCurrentLink(currentLabel);
+    const message = shareMessage({
+      placeName: currentLabel ? placeName : `${currentLocation.lat.toFixed(2)}°, ${currentLocation.lon.toFixed(2)}°`,
+      lat: currentLocation.lat,
+      passes,
+      lowOnly,
+      timeZone: placeTz,
+    });
+    const result = await shareCurrentLink(currentLabel, message);
     if (result === 'copied') {
-      toast({ title: "Link copied", description: "Paste it into a message — it opens with this location." });
+      toast({ title: "Message copied", description: "Paste it into a chat or email — the link opens with this location." });
     } else if (result === 'failed') {
       toast({ title: "Could not share", description: window.location.href });
     }
@@ -128,7 +136,7 @@ const Index = () => {
               className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
             >
               <Share2 className="h-4 w-4" />
-              Share link{currentLabel ? ` for ${currentLabel.split(',')[0]}` : ''}
+              Share {currentLabel ? `${placeName} ` : ''}with a friend
             </button>
           )}
         </div>
