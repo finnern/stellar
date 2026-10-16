@@ -37,7 +37,8 @@ const heightHint = (deg: number) => {
   if (deg >= 60) return 'nearly overhead, look straight up!';
   if (deg >= 30) return `high in the sky (about ${Math.round(deg / 10)} fists above the horizon)`;
   if (deg >= 20) return `about ${Math.round(deg / 10)} fists above the horizon`;
-  return 'low, about 1–2 fists above the horizon – find a spot with a clear view that way';
+  if (deg >= 10) return 'low, about 1–2 fists above the horizon – find a spot with a clear view that way';
+  return 'very low, less than a fist above the horizon – you need an open view that way (lake, field or hilltop)';
 };
 
 const details = (p: ISSPass, appUrl: string) => {

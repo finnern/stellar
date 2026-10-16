@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getISSLocation } from '../services/issLocation';
-import { fetchTLE, predictPasses } from '../services/passPrediction';
+import { fetchTLE, predictPasses, LOW_PASS_MIN_PEAK_DEG } from '../services/passPrediction';
 import NextPassCard from '../components/NextPassCard';
 import LocationInput from '../components/LocationInput';
 import Compass from '../components/Compass';
@@ -48,9 +48,15 @@ const Index = () => {
     refetchInterval: 6 * 60 * 60 * 1000,
   });
 
-  const passes = useMemo(() => {
-    if (!tle) return [];
-    return predictPasses(tle, currentLocation.lat, currentLocation.lon);
+  // Where no pass reaches 10° (far north/south), fall back to low passes so the answer isn't just "never"
+  const { passes, lowOnly } = useMemo(() => {
+    if (!tle) return { passes: [], lowOnly: false };
+    const normal = predictPasses(tle, currentLocation.lat, currentLocation.lon);
+    if (normal.some((p) => p.visible)) return { passes: normal, lowOnly: false };
+    const low = predictPasses(tle, currentLocation.lat, currentLocation.lon, new Date(), {
+      minPeakDeg: LOW_PASS_MIN_PEAK_DEG,
+    });
+    return low.some((p) => p.visible) ? { passes: low, lowOnly: true } : { passes: normal, lowOnly: false };
   }, [tle, currentLocation.lat, currentLocation.lon]);
 
   useEffect(() => {
@@ -131,6 +137,7 @@ const Index = () => {
         {tle && (
           <NextPassCard
             passes={passes}
+            lowOnly={lowOnly}
             placeTimeZone={placeTz}
             placeName={placeName}
             showToggle={showTimeToggle}

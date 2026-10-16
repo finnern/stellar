@@ -18,6 +18,8 @@ const STEP_SECONDS = 30;
 export const LOOKAHEAD_DAYS = 30;
 const LOOKAHEAD_HOURS = LOOKAHEAD_DAYS * 24;
 const MIN_PEAK_ELEVATION_DEG = 10;
+// Far north or south (e.g. northern Scandinavia) the ISS never reaches 10°; low passes still count there
+export const LOW_PASS_MIN_PEAK_DEG = 5;
 // Observer sun elevation below which the sky is dark enough to spot the ISS
 const DARKNESS_SUN_ELEVATION_DEG = -6;
 
@@ -127,14 +129,18 @@ const sampleAt = (
 /**
  * Predict upcoming ISS passes over an observer location using SGP4 propagation.
  * Scans LOOKAHEAD_HOURS (or options.lookaheadHours) ahead in STEP_SECONDS steps; a pass is any interval above
- * the horizon whose peak elevation reaches MIN_PEAK_ELEVATION_DEG.
+ * the horizon whose peak elevation reaches MIN_PEAK_ELEVATION_DEG (or options.minPeakDeg).
  */
 export const predictPasses = (
   tle: TLEData,
   latitude: number,
   longitude: number,
   startFrom: Date = new Date(),
-  { lookaheadHours = LOOKAHEAD_HOURS, heightKm = 0.3 }: { lookaheadHours?: number; heightKm?: number } = {}
+  {
+    lookaheadHours = LOOKAHEAD_HOURS,
+    heightKm = 0.3,
+    minPeakDeg = MIN_PEAK_ELEVATION_DEG,
+  }: { lookaheadHours?: number; heightKm?: number; minPeakDeg?: number } = {}
 ): ISSPass[] => {
   const satrec = twoline2satrec(tle.line1, tle.line2);
   const observerGd = {
@@ -155,30 +161,30 @@ export const predictPasses = (
     if (sample.elevationDeg > 0) {
       current.push(sample);
     } else if (current.length > 0) {
-      const pass = buildPass(current);
+      const pass = buildPass(current, minPeakDeg);
       if (pass) passes.push(pass);
       current = [];
     }
   }
   if (current.length > 1) {
-    const pass = buildPass(current);
+    const pass = buildPass(current, minPeakDeg);
     if (pass) passes.push(pass);
   }
   return passes;
 };
 
-const buildPass = (samples: Sample[]): ISSPass | null => {
+const buildPass = (samples: Sample[], minPeakDeg: number): ISSPass | null => {
   if (samples.length < 2) return null;
   let peak = samples[0];
   for (const s of samples) {
     if (s.elevationDeg > peak.elevationDeg) peak = s;
   }
-  if (peak.elevationDeg < MIN_PEAK_ELEVATION_DEG) return null;
+  if (peak.elevationDeg < minPeakDeg) return null;
 
   const first = samples[0];
   const last = samples[samples.length - 1];
   const visible = samples.some(
-    (s) => s.elevationDeg > MIN_PEAK_ELEVATION_DEG && s.issSunlit && s.observerDark
+    (s) => s.elevationDeg > minPeakDeg && s.issSunlit && s.observerDark
   );
 
   return {

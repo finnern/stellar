@@ -9,6 +9,8 @@ export type TimeMode = 'mine' | 'local';
 
 interface NextPassCardProps {
   passes: ISSPass[];
+  /** No pass reaches 10° here; these are the low ones (≥ 5°) */
+  lowOnly?: boolean;
   /** Time zone of the selected place; the toggle only shows when it differs from the device's */
   placeTimeZone?: string;
   placeName?: string;
@@ -19,7 +21,7 @@ interface NextPassCardProps {
   location: { lat: number; lon: number; label?: string };
 }
 
-const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange, location }: NextPassCardProps) => {
+const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange, location }: NextPassCardProps) => {
   const useLocal = showToggle && timeMode === 'local' && !!placeTimeZone;
   const fmt = useMemo(() => makeTimeFormatter(useLocal ? placeTimeZone : undefined), [useLocal, placeTimeZone]);
   const formatTime = fmt.time;
@@ -78,6 +80,13 @@ const NextPassCard = ({ passes, placeTimeZone, placeName, showToggle, timeMode, 
               <p className="text-2xl font-bold">{next.endDirection}</p>
             </div>
           </div>
+          {lowOnly && (
+            <p className="text-center text-amber-300 text-sm mt-4 rounded-lg bg-amber-500/10 px-3 py-2">
+              Low pass: from here the ISS stays close to the horizon, so you need an open view to the{' '}
+              {next.maxDirection}, over a lake, a field or from a hilltop. It never climbs higher at this
+              latitude, because its orbit only reaches 51.6° north and south.
+            </p>
+          )}
           <p className="text-center text-gray-400 text-sm mt-3">
             Overhead for {Math.round(next.durationSeconds / 60)} min — look{' '}
             {next.startDirection} first
