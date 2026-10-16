@@ -97,27 +97,46 @@ const cleanShareUrl = (): string => {
   return `${window.location.origin}${window.location.pathname}${qs ? `?${qs}` : ''}`;
 };
 
-/** Open the native share sheet (phones) or copy message and link (desktop). Returns what happened. */
-export const shareCurrentLink = async (label?: string, message?: string): Promise<'shared' | 'copied' | 'failed'> => {
-  const url = cleanShareUrl();
-  const title = label ? `See the ISS fly over ${label.split(',')[0].trim()}` : 'Stellar ISS Compass';
-  const text =
-    message ??
-    (label
-      ? `When can you see the International Space Station from ${label}? Live tracker:`
-      : 'When can you see the International Space Station? Live tracker:');
+export interface ShareContent {
+  title: string;
+  text: string;
+  url: string;
+}
+
+export const buildShare = (label: string | undefined, message: string): ShareContent => ({
+  title: label ? `See the ISS fly over ${label.split(',')[0].trim()}` : 'See the ISS fly over',
+  text: message,
+  url: cleanShareUrl(),
+});
+
+/** Direct links for apps that are not in every share sheet (e.g. Gmail in the browser on a Mac) */
+export const shareLinks = ({ title, text, url }: ShareContent) => {
+  const body = `${text}\n${url}`;
+  return {
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(body)}`,
+    email: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`,
+    gmail: `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`,
+  };
+};
+
+export const copyShare = async ({ text, url }: ShareContent): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Open the native share sheet (phones, Safari) or copy message and link. Returns what happened. */
+export const shareCurrentLink = async (share: ShareContent): Promise<'shared' | 'copied' | 'failed'> => {
   if (navigator.share) {
     try {
-      await navigator.share({ title, text, url });
+      await navigator.share(share);
       return 'shared';
     } catch (e) {
       if ((e as DOMException)?.name === 'AbortError') return 'shared'; // user closed the sheet
     }
   }
-  try {
-    await navigator.clipboard.writeText(`${text}\n${url}`);
-    return 'copied';
-  } catch {
-    return 'failed';
-  }
+  return (await copyShare(share)) ? 'copied' : 'failed';
 };

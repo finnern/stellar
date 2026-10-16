@@ -8,10 +8,10 @@ import Compass from '../components/Compass';
 import OrbitView from '../components/OrbitView';
 import { toast } from '@/components/ui/use-toast';
 import { getDefaultLocation } from '../services/geocoding';
-import { useSharedLocation, shareCurrentLink } from '@/hooks/use-shared-location';
+import { useSharedLocation, shareCurrentLink, buildShare, shareLinks, copyShare } from '@/hooks/use-shared-location';
 import { placeTimeZone, deviceTimeZone, sameOffsetNow } from '../services/timeZones';
 import { shareMessage } from '../services/shareMessage';
-import { Share2 } from 'lucide-react';
+import { Share2, Mail, MessageCircle, Copy } from 'lucide-react';
 
 const Index = () => {
   // Location lives in the URL (?place=…&lat=…&lon=…) so the page is always a shareable link
@@ -88,20 +88,30 @@ const Index = () => {
     });
   };
 
+  const share = useMemo(
+    () =>
+      buildShare(
+        currentLabel,
+        shareMessage({
+          placeName: currentLabel ? placeName : `${currentLocation.lat.toFixed(2)}°, ${currentLocation.lon.toFixed(2)}°`,
+          passes,
+          lowOnly,
+          timeZone: placeTz,
+        })
+      ),
+    // The link itself comes from the address bar, which follows the location
+    [currentLabel, placeName, currentLocation.lat, currentLocation.lon, passes, lowOnly, placeTz]
+  );
+  const links = shareLinks(share);
+
+  const copied = (ok: boolean) =>
+    ok
+      ? toast({ title: "Message copied", description: "Paste it into Threema, Signal or any chat or email." })
+      : toast({ title: "Could not copy", description: share.url });
+
   const handleShare = async () => {
-    const message = shareMessage({
-      placeName: currentLabel ? placeName : `${currentLocation.lat.toFixed(2)}°, ${currentLocation.lon.toFixed(2)}°`,
-      lat: currentLocation.lat,
-      passes,
-      lowOnly,
-      timeZone: placeTz,
-    });
-    const result = await shareCurrentLink(currentLabel, message);
-    if (result === 'copied') {
-      toast({ title: "Message copied", description: "Paste it into a chat or email — the link opens with this location." });
-    } else if (result === 'failed') {
-      toast({ title: "Could not share", description: window.location.href });
-    }
+    const result = await shareCurrentLink(share);
+    if (result !== 'shared') copied(result === 'copied');
   };
 
   return (
@@ -131,13 +141,29 @@ const Index = () => {
             {currentLocation.lat.toFixed(4)}°, {currentLocation.lon.toFixed(4)}°
           </div>
           {userLocation && (
-            <button
-              onClick={handleShare}
-              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
-            >
-              <Share2 className="h-4 w-4" />
-              Share the ISS flyover experience with a friend
-            </button>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <button
+                onClick={handleShare}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-space-blue hover:bg-space-accent text-white text-sm font-semibold transition-colors"
+              >
+                <Share2 className="h-4 w-4" />
+                Share the ISS flyover experience with a friend
+              </button>
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-space-blue">
+                <a href={links.whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                </a>
+                <a href={links.email} className="inline-flex items-center gap-1 hover:underline">
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </a>
+                <a href={links.gmail} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                  <Mail className="h-3.5 w-3.5" /> Gmail
+                </a>
+                <button onClick={async () => copied(await copyShare(share))} className="inline-flex items-center gap-1 hover:underline">
+                  <Copy className="h-3.5 w-3.5" /> Copy text (Threema, Signal …)
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

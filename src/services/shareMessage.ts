@@ -9,14 +9,12 @@ const MAX_PASSES = 3;
  */
 export const shareMessage = ({
   placeName,
-  lat,
   passes,
   lowOnly,
   timeZone,
   now = Date.now(),
 }: {
   placeName: string;
-  lat: number;
   passes: ISSPass[];
   lowOnly: boolean;
   /** The place's time zone; undefined = this device's */
@@ -30,42 +28,30 @@ export const shareMessage = ({
   const zoneName = (d: Date) => zone.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? '';
   const next = passes.filter((p) => p.visible && p.startTime.getTime() > now).slice(0, MAX_PASSES);
 
-  const intro = [
-    `Have you ever seen the International Space Station fly over ${placeName}? 🛰️`,
-    '',
-    'It looks like a bright, steady star that crosses the sky in a few minutes: no blinking, ' +
-      'no telescope needed. Up there, about 400 km high, astronauts are circling the Earth every ' +
-      '90 minutes, and you can watch them pass with your own eyes.',
-  ].join('\n');
+  const intro =
+    `🛰️ Want to see the International Space Station fly over ${placeName}? ` +
+    "It's a bright, steady dot crossing the sky in a few minutes, no telescope needed.";
 
   if (!next.length) {
     return [
       intro,
       '',
-      `There's no visible pass from ${placeName} in the next ${LOOKAHEAD_DAYS} days, but the live globe shows where it is right now:`,
+      `No visible pass in the next ${LOOKAHEAD_DAYS} days, but the live globe shows where it is right now:`,
     ].join('\n');
   }
 
   const lines = next.map(
-    (p) =>
-      `• ${when.format(p.startTime)}: appears in the ${p.startDirection}, highest ${p.maxElevationDeg}° in the ${p.maxDirection}`
+    (p) => `• ${when.format(p.startTime)}: from the ${p.startDirection}, up to ${p.maxElevationDeg}° in the ${p.maxDirection}`
   );
-  const low = lowOnly
-    ? [
-        '',
-        `${placeName} is so far ${lat >= 0 ? 'north' : 'south'} that the ISS stays low over the horizon. ` +
-          `Find a spot with an open view to the ${next[0].maxDirection}, over a lake or a field.`,
-      ]
-    : [];
+  const low = lowOnly ? [`It stays low from there, so find an open view to the ${next[0].maxDirection}.`] : [];
 
   return [
     intro,
     '',
-    `Next chances to see it (${placeName} time, ${zoneName(next[0].startTime)}):`,
+    `Next chances (${zoneName(next[0].startTime)}):`,
     ...lines,
     ...low,
     '',
-    'Step outside a few minutes early so your eyes get used to the dark. This little app shows ' +
-      'a countdown, a compass pointing to where it appears, a live globe and calendar reminders:',
+    'Countdown, compass and live globe:',
   ].join('\n');
 };
