@@ -41,9 +41,10 @@ export type TimeMode = 'mine' | 'local';
 export const useSharedLocation = () => {
   const [{ location: initial, placeOnly }] = useState(readFromUrl);
   const [location, setLocationState] = useState<AppLocation | null>(initial);
-  // ?time=local → show pass times in the selected place's time zone
+  // Pass times default to the selected place's time zone (you plan for the people there);
+  // ?time=mine shows them in this device's time instead
   const [timeMode, setTimeModeState] = useState<TimeMode>(() =>
-    new URLSearchParams(window.location.search).get('time') === 'local' ? 'local' : 'mine'
+    new URLSearchParams(window.location.search).get('time') === 'mine' ? 'mine' : 'local'
   );
   const [resolving, setResolving] = useState(!!placeOnly);
 
@@ -71,7 +72,7 @@ export const useSharedLocation = () => {
   const setTimeMode = useCallback((mode: TimeMode) => {
     setTimeModeState(mode);
     const params = new URLSearchParams(window.location.search);
-    if (mode === 'local') params.set('time', 'local');
+    if (mode === 'mine') params.set('time', 'mine');
     else params.delete('time');
     const qs = params.toString();
     window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);

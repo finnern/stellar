@@ -24,10 +24,19 @@ export const sameOffsetNow = (a?: string, b?: string): boolean => {
   }
 };
 
+/** Familiar zone abbreviation: en-GB knows CEST, en-US knows PDT; otherwise e.g. "GMT+13" */
+export const zoneAbbreviation = (d: Date, timeZone?: string): string => {
+  const zoneIn = (locale: string) =>
+    new Intl.DateTimeFormat(locale, { timeZoneName: 'short', timeZone })
+      .formatToParts(d)
+      .find((p) => p.type === 'timeZoneName')?.value ?? '';
+  const gb = zoneIn('en-GB');
+  return gb.startsWith('GMT') || gb.startsWith('UTC') ? zoneIn('en-US') : gb;
+};
+
 /** Time-of-day and day-label formatting in a given time zone (undefined = device time). */
 export const makeTimeFormatter = (timeZone?: string) => {
   const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone });
-  const zone = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short', timeZone });
   const ymd = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone });
   const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
 
@@ -36,7 +45,7 @@ export const makeTimeFormatter = (timeZone?: string) => {
   return {
     time: (d: Date) => time.format(d),
     /** Short zone name like "NZDT" or "GMT+13" */
-    zone: (d: Date) => zone.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? '',
+    zone: (d: Date) => zoneAbbreviation(d, timeZone),
     day: (d: Date) => {
       const now = new Date();
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);

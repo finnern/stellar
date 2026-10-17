@@ -1,5 +1,6 @@
 import type { ISSPass } from './passPrediction';
 import { LOOKAHEAD_DAYS } from './passPrediction';
+import { zoneAbbreviation } from './timeZones';
 
 const MAX_PASSES = 3;
 
@@ -24,8 +25,6 @@ export const shareMessage = ({
   const when = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone,
   });
-  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short', timeZone });
-  const zoneName = (d: Date) => zone.formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? '';
   const next = passes.filter((p) => p.visible && p.startTime.getTime() > now).slice(0, MAX_PASSES);
 
   const intro =
@@ -48,7 +47,7 @@ export const shareMessage = ({
   return [
     intro,
     '',
-    `Next chances (${zoneName(next[0].startTime)}):`,
+    `Next chances (${zoneAbbreviation(next[0].startTime, timeZone)}):`,
     ...lines,
     ...low,
     '',
