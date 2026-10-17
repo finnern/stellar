@@ -1,6 +1,7 @@
 import type { ISSPass } from './passPrediction';
 import { LOOKAHEAD_DAYS } from './passPrediction';
 import { zoneAbbreviation } from './timeZones';
+import { CloudForecast, cloudCoverAt, skyOutlook, skyLabel } from './weather';
 
 const MAX_PASSES = 3;
 
@@ -13,6 +14,7 @@ export const shareMessage = ({
   passes,
   lowOnly,
   timeZone,
+  clouds,
   now = Date.now(),
 }: {
   placeName: string;
@@ -20,6 +22,8 @@ export const shareMessage = ({
   lowOnly: boolean;
   /** The place's time zone; undefined = this device's */
   timeZone?: string;
+  /** Cloud forecast at the place; adds "clear sky" etc. to passes within a week */
+  clouds?: CloudForecast;
   now?: number;
 }): string => {
   const when = new Intl.DateTimeFormat('en-GB', {
@@ -40,7 +44,11 @@ export const shareMessage = ({
   }
 
   const lines = next.map(
-    (p) => `• ${when.format(p.startTime)}: from the ${p.startDirection}, up to ${p.maxElevationDeg}° in the ${p.maxDirection}`
+    (p) => {
+      const cloud = cloudCoverAt(clouds, p.maxElevationTime);
+      const sky = cloud === undefined ? '' : ` (${skyLabel[skyOutlook(cloud)]})`;
+      return `• ${when.format(p.startTime)}: from the ${p.startDirection}, up to ${p.maxElevationDeg}° in the ${p.maxDirection}${sky}`;
+    }
   );
   const low = lowOnly ? [`It stays low from there, so find an open view to the ${next[0].maxDirection}.`] : [];
 

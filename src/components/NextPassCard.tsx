@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { ISSPass, LOOKAHEAD_DAYS } from '../services/passPrediction';
 import { makeTimeFormatter } from '../services/timeZones';
 import Countdown from './Countdown';
-import { CalendarPlus, Download } from 'lucide-react';
+import { CalendarPlus, Download, MoonStar, CloudMoon, Cloud } from 'lucide-react';
+import { CloudForecast, cloudCoverAt, skyOutlook, skyLabel } from '../services/weather';
 import { googleCalendarUrl, buildIcs, downloadIcs } from '../services/calendar';
 
 const SOON_COUNT = 3; // next passes of any kind, so there is always something close by
@@ -14,6 +15,8 @@ interface NextPassCardProps {
   passes: ISSPass[];
   /** No pass reaches 10° here; these are the low ones (≥ 5°) */
   lowOnly?: boolean;
+  /** Hourly cloud cover at the place (Open-Meteo); passes within a week show the sky outlook */
+  clouds?: CloudForecast;
   /** Time zone of the selected place; the toggle only shows when it differs from the device's */
   placeTimeZone?: string;
   placeName?: string;
@@ -24,7 +27,7 @@ interface NextPassCardProps {
   location: { lat: number; lon: number; label?: string };
 }
 
-const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange, location }: NextPassCardProps) => {
+const NextPassCard = ({ passes, lowOnly, clouds, placeTimeZone, placeName, showToggle, timeMode, onTimeModeChange, location }: NextPassCardProps) => {
   const useLocal = showToggle && timeMode === 'local' && !!placeTimeZone;
   const fmt = useMemo(() => makeTimeFormatter(useLocal ? placeTimeZone : undefined), [useLocal, placeTimeZone]);
   const formatTime = fmt.time;
@@ -98,6 +101,9 @@ const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, t
               latitude, because its orbit only reaches 51.6° north and south.
             </p>
           )}
+          <div className="flex justify-center mt-4">
+            <SkyBadge cloudPct={cloudCoverAt(clouds, next.maxElevationTime)} large />
+          </div>
           <p className="text-center text-gray-400 text-sm mt-3">
             Overhead for {Math.round(next.durationSeconds / 60)} min — look{' '}
             {next.startDirection} first
@@ -128,10 +134,19 @@ const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, t
       )}
       <p className="text-center text-gray-500 text-xs mt-3">
         Visible = sky is dark but the ISS is still lit by the sun (after dusk / before dawn).
+        {clouds && (
+          <>
+            {' '}Cloud forecast for the next 7 days by{' '}
+            <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="underline">
+              Open-Meteo.com
+            </a>
+            .
+          </>
+        )}
       </p>
 
       {soon.length > 0 && (
-        <PassList title="Coming up next" passes={soon} formatDay={formatDay} formatTime={formatTime} />
+        <PassList title="Coming up next" passes={soon} formatDay={formatDay} formatTime={formatTime} clouds={clouds} />
       )}
       {visibleAhead.length > 0 && (
         <PassList
@@ -141,9 +156,33 @@ const NextPassCard = ({ passes, lowOnly, placeTimeZone, placeName, showToggle, t
           formatTime={formatTime}
           calendarUrl={calendarUrl}
           onDownload={downloadPass}
+          clouds={clouds}
         />
       )}
     </div>
+  );
+};
+
+const SKY_STYLE = {
+  clear: { Icon: MoonStar, color: 'text-green-400' },
+  partly: { Icon: CloudMoon, color: 'text-amber-300' },
+  cloudy: { Icon: Cloud, color: 'text-gray-500' },
+};
+
+/** Cloud forecast for a pass: "clear sky · 10% clouds"; nothing beyond the forecast range */
+const SkyBadge = ({ cloudPct, large }: { cloudPct?: number; large?: boolean }) => {
+  if (cloudPct === undefined) return null;
+  const outlook = skyOutlook(cloudPct);
+  const { Icon, color } = SKY_STYLE[outlook];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 ${color} ${large ? 'text-sm' : 'text-xs'}`}
+      title={`Forecast: ${cloudPct}% cloud cover (Open-Meteo)`}
+    >
+      <Icon className={large ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+      {skyLabel[outlook]}
+      {large && <span className="text-gray-500">· {cloudPct}% clouds forecast</span>}
+    </span>
   );
 };
 
@@ -158,6 +197,7 @@ const PassList = ({
   formatTime,
   calendarUrl,
   onDownload,
+  clouds,
 }: {
   title: string;
   passes: ISSPass[];
@@ -165,6 +205,7 @@ const PassList = ({
   formatTime: (d: Date) => string;
   calendarUrl?: (p: ISSPass) => string;
   onDownload?: (p: ISSPass) => void;
+  clouds?: CloudForecast;
 }) => (
   <div className="mt-6">
     <h3 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-wide">{title}</h3>
@@ -178,6 +219,7 @@ const PassList = ({
             {p.startDirection}→{p.endDirection}, max {p.maxElevationDeg}°
           </span>
           <span className="text-gray-400 sm:hidden">max {p.maxElevationDeg}°</span>
+          {p.visible && <SkyBadge cloudPct={cloudCoverAt(clouds, p.maxElevationTime)} />}
           {calendarUrl ? (
             <a
               href={calendarUrl(p)}

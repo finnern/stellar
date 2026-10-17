@@ -11,6 +11,7 @@ import { getDefaultLocation } from '../services/geocoding';
 import { useSharedLocation, shareCurrentLink, buildShare, shareLinks, copyShare } from '@/hooks/use-shared-location';
 import { placeTimeZone, deviceTimeZone, sameOffsetNow } from '../services/timeZones';
 import { shareMessage } from '../services/shareMessage';
+import { fetchCloudForecast } from '../services/weather';
 import { Share2, Mail, MessageCircle, Copy } from 'lucide-react';
 
 const Index = () => {
@@ -47,6 +48,14 @@ const Index = () => {
     queryFn: fetchTLE,
     staleTime: 6 * 60 * 60 * 1000,
     refetchInterval: 6 * 60 * 60 * 1000,
+  });
+
+  // Cloud forecast for the place, rounded to ~1 km so small moves reuse the cache
+  const { data: clouds } = useQuery({
+    queryKey: ['clouds', currentLocation.lat.toFixed(2), currentLocation.lon.toFixed(2)],
+    queryFn: () => fetchCloudForecast(currentLocation.lat, currentLocation.lon),
+    staleTime: 60 * 60 * 1000,
+    refetchInterval: 60 * 60 * 1000,
   });
 
   // Where no pass reaches 10° (far north/south), fall back to low passes so the answer isn't just "never"
@@ -97,10 +106,11 @@ const Index = () => {
           passes,
           lowOnly,
           timeZone: placeTz,
+          clouds,
         })
       ),
     // The link itself comes from the address bar, which follows the location
-    [currentLabel, placeName, currentLocation.lat, currentLocation.lon, passes, lowOnly, placeTz]
+    [currentLabel, placeName, currentLocation.lat, currentLocation.lon, passes, lowOnly, placeTz, clouds]
   );
   const links = shareLinks(share);
 
@@ -172,6 +182,7 @@ const Index = () => {
           <NextPassCard
             passes={passes}
             lowOnly={lowOnly}
+            clouds={clouds}
             placeTimeZone={placeTz}
             placeName={placeName}
             showToggle={showTimeToggle}

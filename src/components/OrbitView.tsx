@@ -69,6 +69,8 @@ const OrbitView = ({ tle, userLocation, fallbackPosition, initialMode = 'globe',
   const [follow, setFollow] = useState(true);
   const [fast, setFast] = useState(initialFast);
   const [issLit, setIssLit] = useState<boolean | null>(null);
+  // Short hint when someone scrolls over the globe (the page scrolls; zooming needs a gesture)
+  const [hint, setHint] = useState<string | null>(null);
   const litRef = useRef<boolean | null>(null);
 
   const satrec = useMemo(() => (tle ? makeSatrec(tle) : null), [tle]);
@@ -325,12 +327,23 @@ const OrbitView = ({ tle, userLocation, fallbackPosition, initialMode = 'globe',
     };
   }, [satrec, userLocation.lat, userLocation.lon]);
 
-  // Drag to rotate, pinch / wheel to zoom
+  // Scrolling always moves the page. Mouse drag and sideways swipe rotate; pinch, two fingers
+  // or ⌘/Ctrl + wheel zoom (a trackpad pinch arrives as a wheel event with ctrlKey).
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const pointers = new Map<number, { x: number; y: number }>();
     let pinchDist = 0;
+
+    const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    let hintShown = false;
+    let hintTimer: ReturnType<typeof setTimeout> | undefined;
+    const showHint = (text: string) => {
+      if (hintShown) return; // once per visit is enough
+      hintShown = true;
+      setHint(text);
+      hintTimer = setTimeout(() => setHint(null), 2500);
+    };
 
     const scaleNow = () => {
       const minDim = Math.min(canvas.clientWidth, canvas.clientHeight);
@@ -383,7 +396,16 @@ const OrbitView = ({ tle, userLocation, fallbackPosition, initialMode = 'globe',
       pointers.delete(e.pointerId);
       if (pointers.size < 2) pinchDist = 0;
     };
+    // The browser took over a vertical swipe to scroll the page
+    const onCancel = (e: PointerEvent) => {
+      onUp(e);
+      if (e.pointerType === 'touch') showHint('Swipe sideways to turn · two fingers to zoom');
+    };
     const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) {
+        showHint(isMac ? 'Pinch or ⌘ + scroll to zoom the globe' : 'Ctrl + scroll to zoom the globe');
+        return; // let the page scroll
+      }
       e.preventDefault();
       const v = view.current;
       v.zoom = clampZoom(v.zoom * Math.exp(-e.deltaY * 0.0015), v.mode);
@@ -392,14 +414,15 @@ const OrbitView = ({ tle, userLocation, fallbackPosition, initialMode = 'globe',
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp);
-    canvas.addEventListener('pointercancel', onUp);
+    canvas.addEventListener('pointercancel', onCancel);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
-      canvas.removeEventListener('pointercancel', onUp);
+      canvas.removeEventListener('pointercancel', onCancel);
       canvas.removeEventListener('wheel', onWheel);
+      clearTimeout(hintTimer);
     };
   }, []);
 
@@ -433,10 +456,18 @@ const OrbitView = ({ tle, userLocation, fallbackPosition, initialMode = 'globe',
 
       <div
         ref={wrapRef}
-        className="relative w-full rounded-xl overflow-hidden"
-        style={{ height: mode === 'iss' ? '62vh' : '52vh', maxHeight: 560, minHeight: 320 }}
+        // Phones: a bit shorter, so the next card peeks out below and the page invites scrolling
+        className={`relative w-full rounded-xl overflow-hidden min-h-[300px] max-h-[560px] ${
+          mode === 'iss' ? 'h-[50vh] sm:h-[62vh]' : 'h-[44vh] sm:h-[52vh]'
+        }`}
       >
-        <canvas ref={canvasRef} className="block" style={{ touchAction: 'none' }} />
+        {/* pan-y: vertical swipes scroll the page; sideways swipes and pinches reach the globe */}
+        <canvas ref={canvasRef} className="block" style={{ touchAction: 'pan-y' }} />
+        {hint && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-14 flex justify-center">
+            <span className="rounded-lg bg-black/70 px-3 py-1.5 text-sm text-white shadow-lg">{hint}</span>
+          </div>
+        )}
         {!follow && (
           <button
             onClick={() => setFollow(true)}
