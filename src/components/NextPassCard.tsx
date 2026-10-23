@@ -38,6 +38,13 @@ const NextPassCard = ({ passes, lowOnly, clouds, placeTimeZone, placeName, showT
   const next = upcoming.find((p) => p.visible);
   const soon = upcoming.slice(0, SOON_COUNT);
   const visibleAhead = upcoming.filter((p) => p.visible).slice(0, VISIBLE_COUNT);
+  // Visible passes come in morning and evening runs of a week or two; say when the other kind starts
+  const isMorning = (p: ISSPass) => Number(formatTime24(p.startTime).slice(0, 2)) < 12;
+  const switchPass = next ? upcoming.find((p) => p.visible && p.startTime > next.startTime && isMorning(p) !== isMorning(next)) : undefined;
+  const lastOfRun = switchPass
+    ? upcoming.filter((p) => p.visible && p.startTime < switchPass.startTime).pop()
+    : undefined;
+  const dayInSentence = (d: Date) => formatDay(d).replace(/^(Today|Tomorrow)$/, (w) => w.toLowerCase());
   const place = location.label ?? `${location.lat.toFixed(2)}°, ${location.lon.toFixed(2)}°`;
   const calendarUrl = (p: ISSPass) => googleCalendarUrl(p, place, window.location.href);
   // Apple Calendar, Outlook & co.: .ics file with a 10-minute alarm
@@ -109,6 +116,13 @@ const NextPassCard = ({ passes, lowOnly, clouds, placeTimeZone, placeName, showT
             Overhead for {Math.round(next.durationSeconds / 60)} min — look{' '}
             {next.startDirection} first
           </p>
+          {switchPass && lastOfRun && next && (
+            <p className="text-center text-gray-300 text-sm mt-3 rounded-lg bg-white/5 px-3 py-2">
+              {isMorning(next) ? 'Morning' : 'Evening'} passes only until {dayInSentence(lastOfRun.startTime)}.{' '}
+              {isMorning(next) ? 'Evening' : 'Morning'} passes start {dayInSentence(switchPass.startTime)},{' '}
+              <span className="whitespace-nowrap">around {formatTime(switchPass.startTime)}.</span>
+            </p>
+          )}
           <div className="mt-5 flex flex-col items-center gap-2">
             <a
               href={calendarUrl(next)}
