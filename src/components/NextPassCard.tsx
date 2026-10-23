@@ -216,9 +216,9 @@ const PassList = ({
             {formatDay(p.startTime)} {formatTime(p.startTime)}
           </span>
           <span className="text-gray-400 hidden sm:inline">
-            {p.startDirection}→{p.endDirection}, max {p.maxElevationDeg}°
+            {p.startDirection}→{p.endDirection}, max {p.maxElevationDeg}° {p.maxDirection}
           </span>
-          <span className="text-gray-400 sm:hidden">max {p.maxElevationDeg}°</span>
+          <span className="text-gray-400 sm:hidden">max {p.maxElevationDeg}° {p.maxDirection}</span>
           {p.visible && <SkyBadge cloudPct={cloudCoverAt(clouds, p.maxElevationTime)} />}
           {calendarUrl ? (
             <a

@@ -41,8 +41,8 @@ export const calculateBearing = (
  * Converts bearing to cardinal direction
  */
 export const getCardinalDirection = (bearing: number): string => {
-  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  const index = Math.round(bearing / 45) % 8;
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round((((bearing % 360) + 360) % 360) / 22.5) % 16;
   return directions[index];
 };
 
