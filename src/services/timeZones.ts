@@ -37,6 +37,7 @@ export const zoneAbbreviation = (d: Date, timeZone?: string): string => {
 /** Time-of-day and day-label formatting in a given time zone (undefined = device time). */
 export const makeTimeFormatter = (timeZone?: string) => {
   const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone });
+  const time24 = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone });
   const ymd = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone });
   const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
 
@@ -44,6 +45,8 @@ export const makeTimeFormatter = (timeZone?: string) => {
 
   return {
     time: (d: Date) => time.format(d),
+    /** Always 24-hour ("05:43"), for the narrow phone layout */
+    time24: (d: Date) => time24.format(d),
     /** Short zone name like "NZDT" or "GMT+13" */
     zone: (d: Date) => zoneAbbreviation(d, timeZone),
     day: (d: Date) => {

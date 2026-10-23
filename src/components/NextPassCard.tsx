@@ -31,6 +31,7 @@ const NextPassCard = ({ passes, lowOnly, clouds, placeTimeZone, placeName, showT
   const useLocal = showToggle && timeMode === 'local' && !!placeTimeZone;
   const fmt = useMemo(() => makeTimeFormatter(useLocal ? placeTimeZone : undefined), [useLocal, placeTimeZone]);
   const formatTime = fmt.time;
+  const formatTime24 = fmt.time24;
   const formatDay = fmt.day;
   const now = Date.now();
   const upcoming = passes.filter((p) => p.endTime.getTime() > now);
@@ -146,7 +147,7 @@ const NextPassCard = ({ passes, lowOnly, clouds, placeTimeZone, placeName, showT
       </p>
 
       {soon.length > 0 && (
-        <PassList title="Coming up next" passes={soon} formatDay={formatDay} formatTime={formatTime} clouds={clouds} />
+        <PassList title="Coming up next" passes={soon} formatDay={formatDay} formatTime={formatTime} formatTime24={formatTime24} clouds={clouds} />
       )}
       {visibleAhead.length > 0 && (
         <PassList
@@ -154,6 +155,7 @@ const NextPassCard = ({ passes, lowOnly, clouds, placeTimeZone, placeName, showT
           passes={visibleAhead}
           formatDay={formatDay}
           formatTime={formatTime}
+          formatTime24={formatTime24}
           calendarUrl={calendarUrl}
           onDownload={downloadPass}
           clouds={clouds}
@@ -195,6 +197,7 @@ const PassList = ({
   passes,
   formatDay,
   formatTime,
+  formatTime24,
   calendarUrl,
   onDownload,
   clouds,
@@ -203,6 +206,7 @@ const PassList = ({
   passes: ISSPass[];
   formatDay: (d: Date) => string;
   formatTime: (d: Date) => string;
+  formatTime24: (d: Date) => string;
   calendarUrl?: (p: ISSPass) => string;
   onDownload?: (p: ISSPass) => void;
   clouds?: CloudForecast;
@@ -211,14 +215,19 @@ const PassList = ({
     <h3 className="text-sm font-bold text-gray-400 mb-2 uppercase tracking-wide">{title}</h3>
     <ul className="divide-y divide-white/10">
       {passes.map((p) => (
-        <li key={p.startTime.getTime()} className="py-2 flex items-center gap-3 text-sm">
-          <span className="text-gray-300 flex-1 min-w-0">
-            {formatDay(p.startTime)} {formatTime(p.startTime)}
+        <li key={p.startTime.getTime()} className="py-2 flex items-center gap-2 sm:gap-3 text-sm">
+          <span className="text-gray-300 flex-1">
+            <span className="whitespace-nowrap">{formatDay(p.startTime)}</span>{' '}
+            <span className="hidden sm:inline">{formatTime(p.startTime)}</span>
+            <span className="block sm:hidden">{formatTime24(p.startTime)}</span>
           </span>
           <span className="text-gray-400 hidden sm:inline">
             {p.startDirection}→{p.endDirection}, max {p.maxElevationDeg}° {p.maxDirection}
           </span>
-          <span className="text-gray-400 sm:hidden">max {p.maxElevationDeg}° {p.maxDirection}</span>
+          <span className="text-gray-400 sm:hidden flex flex-col items-center leading-tight">
+            <span className="whitespace-nowrap">max {p.maxElevationDeg}°</span>
+            <span>{p.maxDirection}</span>
+          </span>
           {p.visible && <SkyBadge cloudPct={cloudCoverAt(clouds, p.maxElevationTime)} />}
           {calendarUrl ? (
             <a
